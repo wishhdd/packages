@@ -88,12 +88,13 @@ automation: #Автоматизации
             {%- set current_condition_key = state_attr(weather_entity, 'yandex_condition') | lower -%}
             {%- set yandex_condition_ru = translations[current_condition_key] | default(current_condition_key | capitalize) -%}
             За окном: {{ yandex_condition_ru }}.
-            🌡️ Температура: {{ state_attr(weather_entity, 'temperature') | default('N/A') }}°C
-            {%- if state_attr(weather_entity, 'feels_like') is not none -%}
-            (ощущается как {{ state_attr(weather_entity, 'feels_like') }}°C)
-            {%- endif -%}
-            .
-            🌬️ Ветер: *{{ wind_direction }} {{ state_attr(weather_entity, 'wind_speed') | default('N/A') }} м/с.*
+            🌡️ Температура      {{ state_attr(weather_entity, 'temperature') | default('N/A') }}°C.
+            {% if state_attr(weather_entity, 'feels_like') is not none -%}
+            🌡️ Ощущается как  {{ state_attr(weather_entity, 'feels_like') }}°C.
+            {% endif -%}
+            🌡️ По датчику         {{ states('sensor.street_sensor02_temperature') }}°C.
+
+            🌬️ Ветер: {{ wind_direction }} {{ state_attr(weather_entity, 'wind_speed') | default('N/A') }} м/с.
 
             *Прогноз на день:*
               {% if hourly_forecast[weather_entity] is defined and hourly_forecast[weather_entity].forecast | length > 0 %}
