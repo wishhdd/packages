@@ -1,0 +1,139 @@
+# ===============================================================
+# ВСПОМОГАТЕЛЬНЫЙ ПЕРЕКЛЮЧАТЕЛЬ ДЛЯ "УМНОЙ ПАУЗЫ"
+# ===============================================================
+input_boolean:
+  uborka_priostanovlena_iz_za_prisutstviya:
+    name: "Уборка приостановлена из-за присутствия"
+    icon: mdi:pause-circle
+
+# ########
+automation: #Автоматизации
+  ########
+
+  ####
+  # Эта автоматизация остается без изменений. Она включает ежедневный флаг разрешения на уборку.
+  - id: "2310201847"
+    alias: "reset cleaning"
+    trigger:
+      - platform: time
+        at: "12:00:00"
+    action:
+      - service: input_boolean.turn_on
+        target:
+          entity_id: input_boolean.i_will_vacuum
+
+  ####
+  # Эта автоматизация остается без изменений. Она выключает флаг разрешения, когда уборка завершена.
+  - id: "2310201838"
+    alias: "xiaomi_b106eu_4f70 cleaning_is_complete"
+    trigger:
+      - platform: state
+        entity_id: vacuum.xiaomi_b106eu_4f70_robot_cleaner_2
+        # Убедитесь, что этот атрибут и значение верны для вашей версии интеграции
+        attribute: status
+        to: "docked"
+    condition:
+      - condition: state
+        entity_id: binary_sensor.semia_doma
+        state: "off"
+    action:
+      - service: input_boolean.turn_off
+        target:
+          entity_id: input_boolean.i_will_vacuum
+    mode: single
+
+  ####
+  # ОТКЛЮЧЕНО: Эта автоматизация заменена новой, более умной.
+  - id: "2310081854"
+    alias: "СТАРАЯ - robotTurnsOnWhenEveryoneHasLeftHouse"
+    # Добавлено условие false, чтобы полностью отключить автоматизацию
+    condition:
+      - condition: and
+        conditions:
+          - condition: state
+            entity_id: binary_sensor.den
+            state: "on"
+          - condition: state
+            entity_id: input_boolean.i_will_vacuum
+            state: "on"
+          - condition: template
+            value_template: "false" # <--- Отключающее условие
+    trigger:
+      - platform: state
+        entity_id:
+          - binary_sensor.semia_doma
+        to: "off"
+    action:
+      - service: vacuum.start
+        data: {}
+        target:
+          entity_id: vacuum.xiaomi_b106eu_4f70_robot_cleaner_2
+    mode: single
+
+  ####
+  # ОТКЛЮЧЕНО: Эта автоматизация заменена новой, более умной.
+  - id: "2310082116"
+    alias: "СТАРАЯ - robotTurnsOffWhenEveryoneHasLeftHouse"
+    # Добавлено условие false, чтобы полностью отключить автоматизацию
+    condition:
+      - condition: and
+        conditions:
+          - condition: state
+            entity_id: binary_sensor.den
+            state: "on"
+          - condition: template
+            value_template: "false" # <--- Отключающее условие
+    trigger:
+      - platform: state
+        entity_id:
+          - binary_sensor.semia_doma
+        to: "on"
+    action:
+      - service: vacuum.return_to_base
+        data: {}
+        target:
+          entity_id: vacuum.xiaomi_b106eu_4f70_robot_cleaner_2
+    mode: single
+
+  # ===============================================================
+  # НОВЫЕ АВТОМАТИЗАЦИИ ДЛЯ "УМНОЙ ПАУЗЫ"
+  # ===============================================================
+
+  - alias: "Робот-пылесос - Пауза при возвращении домой"
+    id: vacuum_pause_on_return_home
+    trigger:
+      - platform: state
+        entity_id: binary_sensor.semia_doma
+        to: "on"
+    condition:
+      - condition: state
+        entity_id: vacuum.xiaomi_b106eu_4f70_robot_cleaner_2
+        state: "cleaning"
+    action:
+      - service: vacuum.return_to_base
+        target:
+          entity_id: vacuum.xiaomi_b106eu_4f70_robot_cleaner_2
+      - service: input_boolean.turn_on
+        target:
+          entity_id: input_boolean.uborka_priostanovlena_iz_za_prisutstviya
+
+  - alias: "Робот-пылесос - Запуск/возобновление при уходе из дома"
+    id: vacuum_start_resume_on_leave_home
+    trigger:
+      - platform: state
+        entity_id: binary_sensor.semia_doma
+        to: "off"
+    condition:
+      - condition: state
+        entity_id: binary_sensor.den
+        state: "on"
+      - condition: state
+        entity_id: input_boolean.i_will_vacuum
+        state: "on"
+    action:
+      - service: vacuum.start
+        target:
+          entity_id: vacuum.xiaomi_b106eu_4f70_robot_cleaner_2
+      - service: input_boolean.turn_off
+        target:
+          entity_id: input_boolean.uborka_priostanovlena_iz_za_prisutstviya

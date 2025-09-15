@@ -1,0 +1,133 @@
+##############
+automation: #Автоматизации
+  ##############
+
+  ####
+  - alias: "ShakingRandomEffect" # Тряска = рандомный эффект
+    trigger:
+      - platform: mqtt
+        topic: zigbee2mqtt/kub_dlia_lodzhii
+    condition:
+      - condition: template
+        value_template: "{{ trigger.payload_json.action == 'shake' }}"
+    action:
+      - service: light.turn_on
+        target:
+          entity_id: light.wled
+        data:
+          effect: "{{ state_attr('light.wled', 'effect_list') | random }}"
+      - service: switch.turn_on
+        target:
+          entity_id: switch.loggia_switch01_right
+
+  ####
+
+  - alias: "FallingRandomColorPalette" # Подкинуть = рандомный палитра
+    trigger:
+      - platform: mqtt
+        topic: zigbee2mqtt/kub_dlia_lodzhii
+    condition:
+      - condition: template
+        value_template: "{{ trigger.payload_json.action == 'fall' }}"
+    action:
+      - service: select.select_option
+        target:
+          entity_id: select.wled_color_palette
+        data:
+          option: "{{ state_attr('select.wled_color_palette', 'options') | random }}"
+      - service: switch.turn_on
+        target:
+          entity_id: switch.loggia_switch01_right
+
+  ####
+
+  - alias: "RandomColor" # рандомный цвет
+    mode: single
+    max_exceeded: silent
+    trigger:
+      - platform: mqtt
+        topic: zigbee2mqtt/kub_dlia_lodzhii
+    condition:
+      - condition: template
+        value_template: "{{ trigger.payload_json.action == 'flip90' }}"
+    action:
+      - service: select.select_option
+        target:
+          entity_id: select.wled_color_palette
+        data:
+          option: "Default"
+      - delay: 1
+      - service: light.turn_on
+        target:
+          entity_id: light.wled
+        data:
+          effect: "Solid"
+      - delay: 1
+      - service: light.turn_on
+        target:
+          entity_id: light.wled
+        data:
+          rgb_color: >-
+            [{{range(0,255)|random|int(0)}},{{range(0,255)|random|int(0)}},{{range(0,255)|random|int(0)}}]
+      - service: switch.turn_on
+        target:
+          entity_id: switch.loggia_switch01_right
+
+  ####
+
+  - alias: "ToggleWled" # переключить ленту
+    trigger:
+      - platform: mqtt
+        topic: zigbee2mqtt/kub_dlia_lodzhii
+    condition:
+      - condition: template
+        value_template: "{{ trigger.payload_json.action == 'flip180' }}"
+    action:
+      - service: switch.toggle
+        target:
+          entity_id: switch.loggia_switch01_right
+
+  ####
+
+  - alias: "BrightnessUp" # Яркость вверх
+    mode: queued
+    max: 10
+    trigger:
+      - platform: mqtt
+        topic: zigbee2mqtt/kub_dlia_lodzhii
+    condition:
+      - condition: template
+        value_template: "{{ trigger.payload_json.action == 'rotate_right' }}"
+    action:
+      - service: light.turn_on
+        target:
+          entity_id: light.wled
+        data:
+          brightness: >-
+            {% if state_attr('light.wled', 'brightness') == None %}
+            {{30}}
+            {% else %}
+            {{ state_attr('light.wled', 'brightness')|int(0) + 30}}
+            {% endif %}
+
+  ####
+
+  - alias: "BrightnessDown" # Яркость вниз
+    mode: queued
+    max: 10
+    trigger:
+      - platform: mqtt
+        topic: zigbee2mqtt/kub_dlia_lodzhii
+    condition:
+      - condition: template
+        value_template: "{{ trigger.payload_json.action == 'rotate_left' }}"
+      - condition: state
+        entity_id: light.wled
+        state: "on"
+    action:
+      - service: light.turn_on
+        target:
+          entity_id: light.wled
+        data:
+          brightness: >-
+            {{ [state_attr('light.wled', 'brightness')|int(0) - 30, 0] | max }}

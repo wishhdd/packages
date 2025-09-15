@@ -1,0 +1,4 @@
+input_boolean:
+  i_will_vacuum:
+    name: Буду пылесосить
+    icon: mdi:robot-vacuum

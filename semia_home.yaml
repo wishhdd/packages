@@ -1,0 +1,58 @@
+##############
+automation: #Автоматизации
+  ##############
+
+  - alias: "semiaLeftHome" #
+    mode: single
+    trigger:
+      platform: state
+      entity_id: binary_sensor.semia_doma
+      to: "off"
+      for:
+        minutes: 5
+    action:
+      - service: switch.turn_off
+        target:
+          entity_id:
+            - switch.kitchen_socketx2_01_l1 #свет верхний на кухне
+            - switch.kitchen_socketx2_01_l2 #свет нижний на кухне
+            - switch.loggia_switch01_center #свет на лоджии
+            - switch.loggia_switch01_left #свет на лоджии
+            - switch.loggia_switch01_right #свет на лоджии
+            - switch.hall_switch01_left #свет в зале
+            - switch.hall_switch01_center #свет в зале
+            - switch.wardrobe_switch01_right #свет в гордеробе
+            - switch.bathroom_switch01_left #свет в коридоре
+            - switch.bathroom_switch01_right #свет в ванной
+      - service: light.turn_off
+        target:
+          entity_id:
+            - light.toilet_ledlight_001 #свет в туалете
+            - light.loggia_tablelamp #свет лампы на столе
+            - light.wled #подстветка лоджии
+      - delay: 5
+      - service: climate.set_temperature
+        target:
+          entity_id:
+            - climate.loggia_warmfloor #теплый пол на лоджии
+        data:
+          temperature: 18
+          hvac_mode: heat
+
+  - alias: "semiaCameHome_day" #
+    trigger:
+      platform: state
+      entity_id: binary_sensor.semia_doma
+      to: "on"
+    condition:
+      - condition: state
+        entity_id: binary_sensor.den
+        state: "on"
+    action:
+      - service: climate.set_temperature
+        target:
+          entity_id:
+            - climate.loggia_warmfloor #теплый пол на лоджии
+        data:
+          temperature: 29
+          hvac_mode: heat

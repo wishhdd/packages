@@ -1,0 +1,11 @@
+#Уведомления
+notify:
+  - name: telegram
+    platform: telegram
+    chat_id: !secret group_chat_id
+  - name: telegram96
+    platform: telegram
+    chat_id: !secret wm96_chat_id
+  - name: telegramPK
+    platform: telegram
+    chat_id: !secret pk_chat_id

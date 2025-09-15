@@ -1,0 +1,62 @@
+##############
+automation: #Автоматизации
+  ##############
+
+  ####
+  - alias: "switchButton1"
+    trigger:
+      - platform: mqtt
+        topic: zigbee2mqtt/bedroom_switch01
+    condition:
+      - condition: template
+        value_template: "{{ trigger.payload_json.action == 'button_1_single' }}"
+    action:
+      - service: input_boolean.toggle
+        data:
+          entity_id: input_boolean.doorbell_input_boolean
+
+    # Управление светом
+  - alias: "switchButton2"
+    trigger:
+      - platform: mqtt
+        topic: zigbee2mqtt/bedroom_switch01
+    condition:
+      - condition: template
+        value_template: "{{ trigger.payload_json.action == 'button_2_single' }}"
+    action:
+      - service: script.light_bedroom_ch_1
+
+  ####
+  - alias: "switchButton4"
+    trigger:
+      - platform: mqtt
+        topic: zigbee2mqtt/bedroom_switch01
+    condition:
+      - condition: template
+        value_template: "{{ trigger.payload_json.action == 'button_4_single' }}"
+    action:
+      - service: script.light_bedroom_ch_2
+
+  ####
+  - alias: "switchButton5"
+    trigger:
+      - platform: mqtt
+        topic: zigbee2mqtt/bedroom_switch01
+    condition:
+      - condition: template
+        value_template: "{{ trigger.payload_json.action == 'button_5_single' }}"
+    action:
+      - service: switch.toggle
+        target:
+          entity_id: switch.wardrobe_switch01_right
+
+  ####
+  - alias: "switchButton6"
+    trigger:
+      - platform: mqtt
+        topic: zigbee2mqtt/bedroom_switch01
+    condition:
+      - condition: template
+        value_template: "{{ trigger.payload_json.action == 'button_6_single' }}"
+    action:
+      - service: script.light_bedroom_ch_3

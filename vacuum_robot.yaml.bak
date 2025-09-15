@@ -1,0 +1,74 @@
+# ########
+automation: #Автоматизации
+  ########
+
+  ####
+  - id: "2310201847"
+    alias: "reset cleaning"
+    trigger:
+      - platform: time
+        at: "12:00:00"
+    action:
+      - service: input_boolean.turn_on
+        target:
+          entity_id: input_boolean.i_will_vacuum
+
+  ####
+  - id: "2310201838"
+    alias: "xiaomi_b106eu_4f70 cleaning_is_complete"
+    trigger:
+      - platform: state
+        # entity_id: "{{ state_attr('vacuum.xiaomi_b106eu_4f70_robot_cleaner_2', 'vacuum.status_desc') }}"
+        entity_id: vacuum.xiaomi_b106eu_4f70_robot_cleaner_2
+        attribute: vacuum.status_desc
+        to: "Go Charging"
+    condition:
+      - condition: state
+        entity_id: binary_sensor.semia_doma
+        state: "off"
+    action:
+      - service: input_boolean.turn_off
+        target:
+          entity_id: input_boolean.i_will_vacuum
+    mode: single
+
+  ####
+  - id: "2310081854"
+    alias: robotTurnsOnWhenEveryoneHasLeftHouse
+    trigger:
+      - platform: state
+        entity_id:
+          - binary_sensor.semia_doma
+        to: "off"
+    condition:
+      - condition: state
+        entity_id: binary_sensor.den
+        state: "on"
+      - condition: state
+        entity_id: input_boolean.i_will_vacuum
+        state: "on"
+    action:
+      - service: vacuum.start
+        data: {}
+        target:
+          entity_id: vacuum.xiaomi_b106eu_4f70_robot_cleaner_2
+    mode: single
+
+  ####
+  - id: "2310082116"
+    alias: robotTurnsOffWhenEveryoneHasLeftHouse
+    trigger:
+      - platform: state
+        entity_id:
+          - binary_sensor.semia_doma
+        to: "on"
+    condition:
+      - condition: state
+        entity_id: binary_sensor.den
+        state: "on"
+    action:
+      - service: vacuum.return_to_base
+        data: {}
+        target:
+          entity_id: vacuum.xiaomi_b106eu_4f70_robot_cleaner_2
+    mode: single

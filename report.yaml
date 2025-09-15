@@ -1,0 +1,68 @@
+#########
+automation: #Автоматизации
+  #########
+
+  #########
+  - alias: "Оповещение о дыме во всех комнатах"
+    trigger:
+      - platform: state
+        entity_id:
+          - binary_sensor.kitchen_sensor04_smoke
+          - binary_sensor.0x0c4314fffe7186f7_smoke
+          - binary_sensor.0x0c4314fffef33217_smoke
+        to: "on"
+    action:
+      - service: notify.telegram
+        data:
+          title: "🔥🔥🔥 ПОЖАРНАЯ ТРЕВОГА! 🔥🔥🔥"
+          message: "ВНИМАНИЕ! Сработал датчик дыма: {{ trigger.to_state.name }}!"
+
+  #########
+  - alias: "leakingHeatingBattery" # Протечка батареи отопления
+    trigger:
+      - platform: state
+        entity_id:
+          - binary_sensor.bedroom_sensor03_water_leak
+          - binary_sensor.hall_sensor04_water_leak
+          - binary_sensor.kitchen_sensor05_water_leak
+        to: "on"
+    action:
+      - service: notify.telegram
+        data:
+          title: "💦 ВНИМАНИЕ: Протечка батареи отопления! 💦"
+          message: "Обнаружена протечка! Датчик: {{ trigger.to_state.name }}."
+
+  #########
+  - alias: "waterLeakage" # Оповещение о протечке воды
+    trigger:
+      - platform: state
+        entity_id:
+          - binary_sensor.bathroom_sensor03_water_leak
+          - binary_sensor.toilet_sensor01_water_leak
+          - binary_sensor.kitchen_sensor06_water_leak
+          - binary_sensor.kitchen_sensor03_water_leak
+        to: "on"
+    action:
+      - service: notify.telegram
+        data:
+          title: "💦 ВНИМАНИЕ: Протечка воды! 💦"
+          message: "Обнаружена протечка! Датчик: {{ trigger.to_state.name }}."
+
+  #########
+  - alias: "Общее оповещение о высокой температуре"
+    trigger:
+      - platform: numeric_state
+        entity_id:
+          - sensor.hall_temperature
+          - sensor.temperatura_v_spalne
+          - sensor.kitchen_sensor02_temperature
+          - sensor.bathroom_sensor01_temperature
+          - sensor.loggia_sensor01_temperature
+        above: 35
+        for:
+          minutes: 1
+    action:
+      - service: notify.telegram
+        data:
+          title: "🌡️ ВНИМАНИЕ: Высокая температура!"
+          message: "Критическая температура в помещении '{{ trigger.to_state.name }}'! Текущее значение: {{ trigger.to_state.state }}°C."

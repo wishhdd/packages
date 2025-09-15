@@ -1,0 +1,41 @@
+automation: # Автоматизации
+  #
+  - alias: main_change_tariff
+    trigger:
+      - platform: time
+        at: "06:00:00"
+        variables:
+          tariff: "day"
+      - platform: time
+        at: "22:00:00"
+        variables:
+          tariff: "night"
+    action:
+      - service: select.select_option
+        target:
+          entity_id: select.main_electricity_meter
+        data:
+          option: "{{ tariff }}"
+
+#######
+template:
+  #######
+  - sensor:
+      ##### главный счетчик электричества
+      - name: "main_electricity_meter_consumption" # главный счетчик электричества
+        state_class: total_increasing
+        unit_of_measurement: "kWh"
+        device_class: energy
+        icon: mdi:counter
+        state: >
+          {{ states('sensor.wardrobe_electricmeter_energy') | float(0) }}
+        availability: >
+          {{ states('sensor.wardrobe_electricmeter_energy') not in ['unknown', 'unavailable'] }}
+
+  ### Электросчетчики
+utility_meter:
+  main_electricity_meter:
+    source: sensor.main_electricity_meter_consumption
+    tariffs:
+      - day
+      - night

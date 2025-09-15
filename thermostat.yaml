@@ -1,0 +1,160 @@
+#########
+template:
+  #######
+
+  #######
+  - binary_sensor:
+      #######
+
+      ###########
+      - name: "Пора калибровать температуру"
+        delay_on:
+          minutes: 1
+        delay_off:
+          minutes: 1
+        state: >
+          {% if (state_attr('climate.0x842e14fffe5a3002', 'current_temperature')|float(0) - states('sensor.temperatura_v_spalne')|float(0))|abs|round(2) >= 0.5 %}
+          on
+          {% else %}
+          off
+          {% endif %}
+        device_class: "heat"
+
+##############
+automation: #Автоматизации
+  ##############
+
+  ####
+  # - alias: heatTemperatureCalibration # Калибровка батареи
+  #   id: "2402032313"
+  #   trigger:
+  #     - platform: time_pattern
+  #       minutes: "/5"
+  #   condition:
+  #     - condition: state
+  #       entity_id: binary_sensor.pora_kalibrovat_temperaturu
+  #       state: "on"
+  #   action:
+  #     - service: mqtt.publish
+  #       data:
+  #         topic: "zigbee2mqtt/0x842e14fffe5a3002/set/local_temperature_calibration"
+  #         payload: >-
+  #           {{((states('number.0x842e14fffe5a3002_local_temperature_calibration')|float(0) -
+  #             state_attr('climate.0x842e14fffe5a3002', 'current_temperature')|float(0) +
+  #             states('sensor.temperatura_v_spalne')|float(0))|round(1)/0.5)|round(0)*0.5}}
+
+  ####
+  - alias: "replacingBatteriesInHead" # Сообщаем что батарейки в голве надо заменить
+    trigger:
+      platform: state
+      entity_id: binary_sensor.0x842e14fffe5a3002_battery_low
+      to: "on"
+      for:
+        minutes: 60
+    action:
+      - service: notify.telegram
+        data:
+          message: |
+            ❎ 🔋 👳
+            Уже час висит предупрежение о низком заряде батареек в голове батареи спальни, купи 2шт АА и замени.
+
+  ####
+  # - alias: "TemperatureAtNightHall"
+  #   trigger:
+  #     - platform: time
+  #       at: "21:00:00"
+  #   action:
+  #     - service: climate.set_temperature
+  #       target:
+  #         entity_id:
+  #           - climate.gostinaia
+  #       data:
+  #         temperature: 24 ###26
+  #         hvac_mode: heat
+
+  ####
+  # - alias: "TemperatureAtNightAll"
+  #   trigger:
+  #     - platform: time
+  #       at: "21:00:00"
+  #   action:
+  #     - service: climate.set_temperature
+  #       target:
+  #         entity_id:
+  #           - climate.kukhnia
+  #       data:
+  #         temperature: 23 ###23
+  #         hvac_mode: heat
+  #     - service: climate.set_temperature
+  #       target:
+  #         entity_id:
+  #           - climate.0x842e14fffe5a3002 # батарея в спальне
+  #       data:
+  #         temperature: 23 ###23
+  #         hvac_mode: auto
+
+  ####
+  - alias: "TemperatureAtNightFloor"
+    trigger:
+      - platform: time
+        at: "22:00:00"
+    action:
+      - service: climate.set_temperature
+        target:
+          entity_id:
+            - climate.loggia_warmfloor #теплый пол на лоджии
+        data:
+          temperature: 18
+          hvac_mode: heat
+
+  ####
+  - alias: "TemperatureAtDayFloor"
+    trigger:
+      - platform: time
+        at: "09:00:00"
+    action:
+      - service: climate.set_temperature
+        target:
+          entity_id:
+            - climate.loggia_warmfloor #теплый пол на лоджии
+        data:
+          temperature: 29
+          hvac_mode: heat
+
+########
+climate: #Климат
+  ########
+
+  ####
+  - platform: generic_thermostat
+    name: "Кухня"
+    heater: switch.loggia_din01 # KitchenSwitchThermostat
+    target_sensor: sensor.sredniaia_temperatura_na_kukhni_i_lodzhii
+    min_temp: 18
+    max_temp: 27
+    target_temp: 24
+    ac_mode: false
+    initial_hvac_mode: "heat"
+    precision: 0.5
+    cold_tolerance: 0.2
+    hot_tolerance: 0.3
+    keep_alive:
+      minutes: 30
+
+  ####
+  - platform: generic_thermostat
+    name: "Гостиная"
+    heater: switch.hall_socketx4_01_l3
+    target_sensor: sensor.hall_temperature
+    min_temp: 20
+    max_temp: 27
+    target_temp: 24
+    ac_mode: false
+    min_cycle_duration:
+      seconds: 180
+    initial_hvac_mode: "heat"
+    precision: 0.5
+    cold_tolerance: 0.2
+    hot_tolerance: 0.3
+    keep_alive:
+      minutes: 30

@@ -1,0 +1,29 @@
+#########
+automation: #Автоматизации
+#########
+
+###
+- alias: "NY on"
+  trigger:
+    - platform: sun
+      event: sunset
+    - platform: time
+      at: "06:30:00"
+  action:
+    - service: switch.turn_on
+      target:
+        entity_id: 
+          - switch.0x60a423fffead7948
+
+###
+- alias: "NY off"
+  trigger:
+    - platform: time
+      at: "23:30:00"
+    - platform: sun
+      event: sunrise
+  action:
+    - service: switch.turn_off
+      target:
+        entity_id: 
+          - switch.0x60a423fffead7948

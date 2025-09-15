@@ -1,0 +1,55 @@
+########
+automation: #Автоматизации
+  ########
+  - alias: "Update NAS Performance Sensors"
+    description: "Принудительно обновляет сенсоры производительности NAS"
+    id: update_nas_performance_sensors
+    trigger:
+      - platform: time_pattern
+        minutes: "/10"
+    condition: []
+    action:
+      - service: homeassistant.update_entity
+        target:
+          entity_id:
+            - sensor.nas_cpu_usage_percent
+            - sensor.nas_cpu_usage_1step_percent
+            - sensor.nas_cpu_usage_5step_percent
+            - sensor.nas_cpu_usage_15step_percent
+            - sensor.nas_memory_used_percent
+            - sensor.nas_swap_used
+            - sensor.nas_swap_total
+            - sensor.nas_cpu_temperature
+            - sensor.nas_fan_speed
+    mode: single
+
+  - alias: "Update NAS Disk Sensors"
+    description: "Принудительно обновляет сенсоры дисков NAS каждый час"
+    id: update_nas_disk_sensors
+    trigger:
+      - platform: time_pattern
+        minutes: "01"
+    condition: []
+    action:
+      - service: homeassistant.update_entity
+        target:
+          entity_id:
+            # --- Сенсоры диска SDA ---
+            - sensor.disk_sda_health_status
+            - sensor.disk_sda_temperature
+            - sensor.disk_sda_partition_1_size
+            - sensor.disk_sda_partition_1_used
+            - sensor.disk_sda_partition_1_available
+            - sensor.disk_sda_partition_1_usage_percent
+            - binary_sensor.disk_sda_health_passed
+            - binary_sensor.disk_sda_check_needed
+            # --- Сенсоры диска SDB ---
+            - sensor.disk_sdb_health_status
+            - sensor.disk_sdb_temperature
+            - sensor.disk_sdb_partition_1_size
+            - sensor.disk_sdb_partition_1_used
+            - sensor.disk_sdb_partition_1_available
+            - sensor.disk_sdb_partition_1_usage_percent
+            - binary_sensor.disk_sdb_health_passed
+            - binary_sensor.disk_sdb_check_needed
+    mode: single

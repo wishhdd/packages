@@ -1,0 +1,207 @@
+##############
+timer:
+  ##############
+  move_led:
+    duration: "00:03:00"
+
+  ##############
+automation: #Автоматизации
+  ##############
+
+  ####
+  - alias: "windowsillLightByMovement" #
+    trigger:
+      platform: state
+      entity_id:
+        - binary_sensor.kitchen_sensor01_occupancy
+      to: "on"
+    condition:
+      condition: and
+      conditions:
+        - condition: state
+          entity_id: sun.sun
+          state: "below_horizon"
+        - condition: state
+          entity_id:
+            - switch.kitchen_socketx2_01_l1 # Подсветка линия 1
+            - switch.kitchen_socketx2_01_l2 # Подсветка линия 2
+            - switch.loggia_switch01_left # выключатель на лоджии
+            - switch.loggia_switch01_center # выключатель на лоджии
+            - switch.loggia_switch01_right # выключатель на лоджии
+          state: "off"
+    action:
+      - service: select.select_option
+        target:
+          entity_id: select.wled_preset
+        data:
+          option: Nightlight
+      - service: light.turn_on
+        data:
+          entity_id: light.wled # Подсветка подоконика
+      - service: timer.start
+        target:
+          entity_id: timer.move_led
+
+  ####
+  - alias: "turning_off_led_by_timer"
+    trigger:
+      - platform: event
+        event_type: timer.finished
+        event_data:
+          entity_id: timer.move_led
+    action:
+      - service: light.turn_off
+        target:
+          entity_id: light.wled # Подсветка подоконика
+
+  ####
+  - alias: "switchLightFromBelow" #Один клик переключает нижний свет
+    trigger:
+      - platform: mqtt
+        topic: zigbee2mqtt/kitchen_switch01
+    condition:
+      - condition: template
+        value_template: "{{ trigger.payload_json.action == 'button_3_single' }}"
+    action:
+      - service: switch.toggle
+        target:
+          entity_id: switch.kitchen_socketx2_01_l1
+
+  ####
+  - alias: "switchLightFromOverhead " # Один клик переключает свет верх
+    trigger:
+      - platform: mqtt
+        topic: zigbee2mqtt/kitchen_switch01
+    condition:
+      - condition: template
+        value_template: "{{ trigger.payload_json.action == 'button_1_single' }}"
+    action:
+      - service: switch.toggle
+        target:
+          entity_id: switch.kitchen_socketx2_01_l2
+
+  ####
+  - alias: "lightSwitchB2H"
+    trigger:
+      - platform: mqtt
+        topic: zigbee2mqtt/kitchen_switch01
+    condition:
+      - condition: template
+        value_template: "{{ trigger.payload_json.action == 'button_2_hold' }}"
+    action:
+      - service: switch.turn_off
+        target:
+          entity_id:
+            - switch.hall_switch01_left # люстра 1
+            - switch.hall_switch01_center # люстра 2
+            - switch.hall_socketx4_01_l2 # Подсвтека батареи
+
+  ####
+  - alias: "lightSwitchB4H"
+    trigger:
+      - platform: mqtt
+        topic: zigbee2mqtt/kitchen_switch01
+    condition:
+      - condition: template
+        value_template: "{{ trigger.payload_json.action == 'button_4_hold' }}"
+    action:
+      - service: switch.turn_off
+        target:
+          entity_id:
+            - switch.0xa4c138beea7732ba_right # свет в ванной оснвной
+            - switch.0xa4c138beea7732ba_center # свет в ванной дополнительный
+
+  ####
+  - alias: "lightLoggia1"
+    trigger:
+      - platform: mqtt
+        topic: zigbee2mqtt/kitchen_switch01
+    condition:
+      - condition: template
+        value_template: "{{ trigger.payload_json.action == 'button_5_single' }}"
+    action:
+      - service: switch.toggle
+        target:
+          entity_id: switch.loggia_switch01_left # выключтель на лоджии
+
+  ####
+  - alias: "lightLoggia2"
+    trigger:
+      - platform: mqtt
+        topic: zigbee2mqtt/kitchen_switch01
+    condition:
+      - condition: template
+        value_template: "{{ trigger.payload_json.action == 'button_5_double' }}"
+    action:
+      - service: switch.toggle
+        target:
+          entity_id: switch.loggia_switch01_center # выключтель на лоджии
+
+  ####
+  - alias: "lightLoggiaAll"
+    trigger:
+      - platform: mqtt
+        topic: zigbee2mqtt/kitchen_switch01
+    condition:
+      - condition: template
+        value_template: "{{ trigger.payload_json.action == 'button_5_triple' }}"
+    action:
+      - service: switch.turn_on
+        target:
+          entity_id:
+            - switch.loggia_switch01_left
+            - switch.loggia_switch01_center # выключтель на лоджии
+
+  ####
+  - alias: "lightLoggiaAllOff"
+    trigger:
+      - platform: mqtt
+        topic: zigbee2mqtt/kitchen_switch01
+    condition:
+      - condition: template
+        value_template: "{{ trigger.payload_json.action == 'button_5_hold' }}"
+    action:
+      - service: switch.turn_off
+        target:
+          entity_id:
+            - switch.loggia_switch01_left
+            - switch.loggia_switch01_center # выключтель на лоджии
+            - switch.loggia_switch01_right
+      - service: light.turn_off
+        target:
+          entity_id:
+            - light.wled
+            - light.light.loggia_tablelamp #настольная лампа
+
+  ####
+  - alias: "lightCeilingCenter" #Один клик переключает свет центр
+    trigger:
+      - platform: mqtt
+        topic: zigbee2mqtt/kitchen_switch01
+    condition:
+      - condition: template
+        value_template: "{{ trigger.payload_json.action == 'button_2_single' }}"
+    action:
+      - service: script.light_kitchen_ch1
+
+  ####
+  - alias: "lightCeilingLeftRight"
+    trigger:
+      - platform: mqtt
+        topic: zigbee2mqtt/kitchen_switch01
+    condition:
+      - condition: template
+        value_template: "{{ trigger.payload_json.action == 'button_6_single' }}"
+    action:
+      - service: script.light_kitchen_ch2
+
+  ####
+  - alias: "lightCeilingFrontBack"
+    trigger:
+      - platform: mqtt
+        topic: zigbee2mqtt/kitchen_switch01
+    condition:
+      - condition: template
+        value_template: "{{ trigger.payload_json.action == 'button_4_single' }}"
+    action:
+      - service: script.light_kitchen_ch3

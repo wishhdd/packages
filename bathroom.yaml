@@ -1,0 +1,169 @@
+#########
+template:
+  #######
+  #######
+  - sensor:
+      #######
+      - name: "Пороговая влажность"
+        state_class: measurement
+        device_class: humidity
+        unit_of_measurement: "%"
+        state: >
+          {% set humidity = 60 %}
+          {% if humidity < states('sensor.hall_humidity')|int(0) %}
+          {% set humidity = states('sensor.hall_humidity')|int(0) %}
+          {% endif %}
+          {% if humidity < states('sensor.vlazhnost_v_spalne')|int(0) %}
+          {% set humidity = states('sensor.vlazhnost_v_spalne')|int(0) %}
+          {% endif %}
+          {% if humidity < states('sensor.kitchen_sensor02_humidity')|int(0) %}
+          {% set humidity = states('sensor.kitchen_sensor02_humidity')|int(0) %}
+          {% endif %}
+          {% if humidity < states('sensor.loggia_sensor01_humidity')|int(0) %}
+          {% set humidity = states('sensor.loggia_sensor01_humidity')|int(0) %}
+          {% endif %}
+          {{humidity + humidity * 0.1}}
+        attributes:
+          Зал: "{{states('sensor.hall_humidity')}}"
+          Спальня: "{{states('sensor.vlazhnost_v_spalne')}}"
+          Кухня: "{{states('sensor.kitchen_sensor02_humidity')}}"
+          Лоджия: "{{states('sensor.loggia_sensor01_humidity')}}"
+
+  #######
+  - binary_sensor:
+      #######
+      - name: "Вытяжка в ванной"
+        delay_on:
+          minutes: 1
+        delay_off:
+          minutes: 1
+        state: >
+          {{ (is_state('binary_sensor.bathroom_sensor02_contact', 'on')
+            or (is_state('switch.0xa4c138beea7732ba_right', 'off')
+            and is_state('switch.0xa4c138beea7732ba_center', 'off')))
+            and states('sensor.porogovaia_vlazhnost')|int(0) < states('sensor.bathroom_sensor01_humidity')|int(0)
+            and is_state('binary_sensor.den', 'on')	}}
+        device_class: "moisture"
+        attributes:
+          Дверь: "{{states('binary_sensor.bathroom_sensor02_contact')}}"
+          Свет основной: "{{states('switch.0xa4c138beea7732ba_right')}}"
+          Свет вспомогательный: "{{states('switch.0xa4c138beea7732ba_center')}}"
+          День: "{{states('binary_sensor.den')}}"
+          Пороговая_влажность: "{{states('sensor.porogovaia_vlazhnost')|int(0)}}"
+          Влажность_в_ввнной: "{{states('sensor.bathroom_sensor01_humidity')|int(0)}}"
+
+#########
+timer:
+  #########
+  bathroom_light_timer:
+    name: "Таймер для ванной"
+    duration: "00:05:00"
+
+#########
+automation:
+  #########
+  ####
+  - alias: "bathroomLightMovement" #Включаем свет по движению
+    condition:
+      condition: state
+      entity_id:
+        - switch.0xa4c138beea7732ba_right
+        - switch.0xa4c138beea7732ba_center
+      state: "off"
+    trigger:
+      platform: state
+      entity_id:
+        - binary_sensor.bathroom_sensor02_contact # Д двери в ванной
+        - binary_sensor.0xa4c13864d6e9739b_occupancy #Д движения в ванной по центру
+      to: "on"
+    action:
+      - service: light.turn_on
+        target:
+          entity_id: light.0xa4c1384f3edb8c51
+      - service: timer.start
+        target:
+          entity_id: timer.bathroom_light_timer
+  ####
+  - alias: "bathroomLightTurnOffMovement" #Выключаем свет без движению
+    id: "2409182129"
+    condition:
+      condition: state
+      entity_id:
+        - switch.0xa4c138beea7732ba_right
+        - switch.0xa4c138beea7732ba_center
+      state: "off"
+    trigger:
+      platform: event
+      event_type: timer.finished
+      event_data:
+        entity_id: timer.bathroom_light_timer
+    action:
+      - service: light.turn_off
+        target:
+          entity_id: light.0xa4c1384f3edb8c51
+
+  ####
+  - alias: "turnsOnFanWhenHumidityIsHighAndLightIsOff" #Включает вентилятор
+    trigger:
+      platform: state
+      entity_id: binary_sensor.vytiazhka_v_vannoi
+      to: "on"
+    action:
+      - service: switch.turn_on
+        target:
+          entity_id: switch.bathroomfan2_l1
+
+  ####
+  - alias: "turnsOffFanLowHumidity" #Выключает вентилятор
+    trigger:
+      platform: state
+      entity_id: binary_sensor.vytiazhka_v_vannoi
+      to: "off"
+    action:
+      - service: switch.turn_off
+        target:
+          entity_id: switch.bathroomfan2_l1
+
+  - alias: "turnOffAdditionalLightInBathroom" #дополнительный свет в ванной выключить
+    trigger:
+      platform: state
+      entity_id: switch.0xa4c138beea7732ba_center
+      to: "off"
+    action:
+      - service: light.turn_off
+        target:
+          entity_id: light.0xa4c1384f3edb8c51
+
+  - alias: "turnOnAdditionalLightInBathroom" #дополнительный свет в ванной включить
+    trigger:
+      platform: state
+      entity_id: switch.0xa4c138beea7732ba_center
+      to: "on"
+    action:
+      - service: light.turn_on
+        target:
+          entity_id: light.0xa4c1384f3edb8c51
+
+  - alias: "turnOffCenterLightsRight" #выключить центр горит право
+    id: "2409201107"
+    trigger:
+      platform: state
+      entity_id: switch.0xa4c138beea7732ba_right
+      to: "on"
+    action:
+      - service: switch.turn_off
+        target:
+          entity_id: switch.0xa4c138beea7732ba_center
+      - service: light.turn_off
+        target:
+          entity_id: light.0xa4c1384f3edb8c51
+
+  - alias: "turnOffRightLightsCenter" #выключить право горит центр
+    trigger:
+      platform: state
+      entity_id: switch.0xa4c138beea7732ba_center
+      to: "on"
+    action:
+      - service: switch.turn_off
+        target:
+          entity_id: switch.0xa4c138beea7732ba_right

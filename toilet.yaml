@@ -1,0 +1,99 @@
+###########
+automation:
+  ###########
+  ####
+  - alias: toiletLightOn #  Свет включить датчик двери и присуствие человека
+    trigger:
+      - platform: state
+        entity_id:
+          - binary_sensor.toilet_sensor02_contact
+          - binary_sensor.toilet_sensor03_occupancy
+          - binary_sensor.toilet_humansensor_001_presence
+        to: "on"
+    action:
+      - choose:
+          # Условие для дня
+          - conditions:
+              - condition: state
+                entity_id: binary_sensor.den
+                state: "on"
+            sequence:
+              - service: light.turn_on
+                target:
+                  entity_id: light.toilet_ledlight_001
+                data:
+                  brightness: 254
+          # Условие для ночи
+          - conditions:
+              - condition: state
+                entity_id: binary_sensor.den
+                state: "off"
+            sequence:
+              - service: light.turn_on
+                target:
+                  entity_id: light.0xa4c1383e47e40ba8
+                data:
+                  brightness: 1
+
+  ####
+  - alias: "switchingLightToiletOn" # Свет по выключателю включаем
+    trigger:
+      - platform: mqtt
+        topic: zigbee2mqtt/toilet_switch01
+    condition:
+      - condition: template
+        value_template: "{{ trigger.payload_json.action in ['single_left', 'single_right'] }}"
+      - condition: state
+        entity_id: light.toilet_ledlight_001
+        state: "off"
+    action:
+      - choose:
+          - conditions:
+              - condition: state
+                entity_id: binary_sensor.den
+                state: "on"
+            sequence:
+              - service: light.turn_on
+                target:
+                  entity_id: light.toilet_ledlight_001
+                data:
+                  brightness: 254
+        default:
+          - service: light.turn_on
+            target:
+              entity_id: light.toilet_ledlight_001
+            data:
+              brightness: 1
+
+  ####
+  - alias: "switchingLightToiletOff" # Свет по выключателю выключаем
+    trigger:
+      - platform: mqtt
+        topic: zigbee2mqtt/toilet_switch01
+    condition:
+      - condition: template
+        value_template: "{{ trigger.payload_json.action in ['single_left', 'single_right'] }}"
+      - condition: state
+        entity_id: light.toilet_ledlight_001
+        state: "on"
+        for:
+          seconds: 3
+    action:
+      - service: light.turn_off
+        target:
+          entity_id:
+            - light.toilet_ledlight_001
+            - light.0xa4c1383e47e40ba8
+
+  ####
+  - alias: "turnOffLightOnNoHuman" # нет человека - выключаем свет
+    trigger:
+      platform: state
+      entity_id: binary_sensor.toilet_humansensor_001_presence
+      to: "off"
+    action:
+      - service: light.turn_off
+        target:
+          entity_id:
+            - light.toilet_ledlight_001
+            - light.0xa4c1383e47e40ba8

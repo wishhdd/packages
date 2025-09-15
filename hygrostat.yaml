@@ -1,0 +1,91 @@
+##############
+generic_hygrostat: # Уважнители
+  ##############
+
+  - name: Увлажнитель в зале
+    humidifier: switch.hall_socketx4_01_l4
+    target_sensor: sensor.hall_humidity
+    min_humidity: 35
+    max_humidity: 65
+    target_humidity: 50
+    device_class: "humidifier"
+    min_cycle_duration:
+      seconds: 180
+    keep_alive:
+      minutes: 30
+
+  - name: Увлажнитель в спальне
+    humidifier: switch.bedroom_socketx4_01_l1
+    target_sensor: sensor.vlazhnost_v_spalne
+    min_humidity: 35
+    max_humidity: 65
+    target_humidity: 50
+    device_class: "humidifier"
+    min_cycle_duration:
+      seconds: 180
+    keep_alive:
+      minutes: 30
+
+##############
+automation: #Автоматизации
+  ##############
+
+  # ###
+  - alias: humidityFromTemperature # влажность от температуры
+    trigger:
+      - platform: time_pattern
+        hours: "/3"
+    action:
+      - service: humidifier.set_humidity
+        target:
+          entity_id:
+            - humidifier.uvlazhnitel_v_spalne
+            - humidifier.uvlazhnitel_v_zale
+        data:
+          humidity: >-
+            {% set outdoorTemperature = states('sensor.street_sensor02_temperature')|float(0) %}
+            {% if outdoorTemperature < -20 %}
+            {% set outdoorTemperature = -20 %}
+            {% endif %}
+            {% if outdoorTemperature > 30 %}
+            {% set outdoorTemperature = 30 %}
+            {% endif %}
+            {{ ((outdoorTemperature + 20)*0.2 + 40) | int(40) }}
+
+  ###
+  - alias: TurnOnHumidifier # Включаем увлажнители
+    trigger:
+      - platform: state
+        entity_id: binary_sensor.semia_doma
+        to: "on"
+      - platform: state
+        entity_id: binary_sensor.open_windows
+        to: "off"
+      - platform: state
+        entity_id: binary_sensor.den
+        to: "on"
+    action:
+      - service: humidifier.turn_on
+        target:
+          entity_id:
+            - humidifier.uvlazhnitel_v_spalne
+            - humidifier.uvlazhnitel_v_zale
+
+  ###
+  - alias: TurnOffHumidifier # Выключаем увлажнители
+    trigger:
+      - platform: state
+        entity_id: binary_sensor.semia_doma
+        to: "off"
+      - platform: state
+        entity_id: binary_sensor.open_windows
+        to: "on"
+      - platform: state
+        entity_id: binary_sensor.den
+        to: "off"
+    action:
+      - service: humidifier.turn_off
+        target:
+          entity_id:
+            - humidifier.uvlazhnitel_v_spalne
+            - humidifier.uvlazhnitel_v_zale

@@ -1,0 +1,434 @@
+##############
+mqtt:
+  #######
+  sensor:
+    ###
+    - name: "Последнее значение угликислого газа в спальне"
+      state_topic: "climate/sensors/carbon_dioxide/last_value/bedroom"
+      unit_of_measurement: "CO2"
+      value_template: "{{ value | int }}"
+
+##############
+input_select:
+  breezer_algorithm:
+    name: "Алгоритм работы бризера"
+    options:
+      - linear
+      - targeted_1
+      - targeted_2
+    initial: targeted_2
+    icon: mdi:panda
+
+##############
+input_number:
+  minimum_value_for_breezer:
+    name: Минимальное значение для бризера
+    icon: mdi:molecule-co2
+    initial: 660
+    min: 450
+    max: 1800
+    step: 50
+  ###
+  delta_value_for_breezer:
+    name: Дельта значение для бризера
+    icon: mdi:molecule-co2
+    initial: 50
+    min: 25
+    max: 300
+    step: 25
+  ###
+  maximum_value_for_breezer:
+    name: Максимальное значение для бризера
+    icon: mdi:molecule-co2
+    initial: 1500
+    min: 450
+    max: 1800
+    step: 50
+  breezer_maximum_speed_at_night:
+    name: Скорость бризера ночью
+    icon: mdi:fan
+    initial: 1
+    min: 1
+    max: 6
+    step: 1
+  breezer_maximum_speed_at_day:
+    name: Скорость бризера днем
+    icon: mdi:fan
+    initial: 4
+    min: 1
+    max: 6
+    step: 1
+  temperature_at_which_heating_is_turned_on_in_breezer:
+    name: Температура включения догрева
+    icon: mdi:sun-thermometer-outline
+    initial: 22.5
+    min: 15
+    max: 25
+    step: 0.5
+  temperature_at_which_max_heating_is_turned_on_in_breezer:
+    name: Температура включения максимального догрева
+    icon: mdi:sun-thermometer-outline
+    initial: 20.0
+    min: 15
+    max: 25
+    step: 0.5
+##############
+input_boolean:
+  breezer_show_settings:
+    name: Показать настройки
+    icon: mdi:cog-outline
+
+  breezer_type_of_algorithm:
+    name: Целевой алгортм
+    icon: mdi:progress-star
+
+  breezer_day_heating:
+    name: Бризер обогрев днем
+    icon: mdi:heating-coil
+
+  breezer_automation_heating_on:
+    name: Включить автоматизацию подборва обогрева
+    icon: mdi:heating-coil
+
+#########
+template:
+  #######
+  ###########
+  - sensor:
+      ###########
+      - name: "Финальная скорость бризера"
+        unit_of_measurement: "%"
+        icon: "mdi:fan-speed-3"
+        state: >
+          {% set speed_max = states("sensor.maksimalnaia_skorost_brizera")|float(0) %}
+          {% set speed = 0 %}
+          {% if is_state("input_select.breezer_algorithm", "linear") %}
+          {% set speed = states("sensor.sensor.tselevaia_skorost_brizera")|int(0) %}
+          {% endif %}
+          {% if is_state("input_select.breezer_algorithm", "targeted_1") %}
+          {% set speed = states("sensor.tselevaia_skorost_brizera_algoritm_tselevogo_znacheniia")|int(0) %}
+          {% endif %}
+          {% if is_state("input_select.breezer_algorithm", "targeted_2") %}
+          {% set speed = states("sensor.tselevaia_skorost_brizera_algoritm_2")|int(0) %}
+          {% endif %}
+          {% if speed < 0 %}
+          {% set speed = 0 %}
+          {% endif %}
+          {% if speed > speed_max %}
+          {% set speed = speed_max %}
+          {% endif %}
+          {% if is_state("binary_sensor.semia_doma", "off") %}
+          {% set speed = 0 %}
+          {% endif %}
+          {{speed|round(0)}}
+      ###########
+      - name: "Максимальная скорость бризера"
+        unit_of_measurement: "%"
+        icon: "mdi:fan-speed-3"
+        state: >
+          {% set speed_max  = states("input_number.breezer_maximum_speed_at_day")|float(0) * state_attr('fan.royal_clima_rcb_150', 'percentage_step')|float(0) + 1  %}
+          {% if is_state("binary_sensor.den", "off") and is_state("binary_sensor.semia_doma", "on") %}
+          {% set speed_max = states("input_number.breezer_maximum_speed_at_night")|float(0) * state_attr('fan.royal_clima_rcb_150', 'percentage_step')|float(0) + 1 %}
+          {% endif %}
+          {{speed_max|round(0)}}
+
+      ###########
+      - name: "Скорость бризера"
+        unit_of_measurement: "%"
+        icon: "mdi:fan"
+        state: >
+          {% set speed = state_attr('fan.royal_clima_rcb_150', 'percentage')|float(0) %}
+          {% if is_state("fan.royal_clima_rcb_150", "off") %}
+          {% set speed = 0 %}
+          {% endif %}
+          {{speed|round(0)}}
+        attributes:
+          step: >
+            {% set speed = state_attr('fan.royal_clima_rcb_150', 'percentage')|float(0) %}
+            {% if is_state("fan.royal_clima_rcb_150", "off") %}
+            {% set speed = 0 %}
+            {% endif %}
+            {% set step = state_attr('fan.royal_clima_rcb_150', 'percentage_step')|float(0) %}
+            {% set speed_step = speed/step %}
+            {{speed_step|round(0)}}
+
+      ###########
+      - name: "Целевая скорость бризера"
+        unit_of_measurement: "%"
+        icon: "mdi:fan-auto"
+        state: >
+          {% set co2_minimum = states("input_number.minimum_value_for_breezer")|int(0) %}
+          {% set co2_delta_number = states("input_number.delta_value_for_breezer")|int(0) %}
+          {% set co2_target = co2_minimum - co2_delta_number %}
+          {% set hysteresis = states("input_number.maximum_value_for_breezer")|int(0) - co2_target %}
+          {% set co2 = states("sensor.0x00124b002a61a064_co2")|int(0) %}
+          {% set speed_min = state_attr('fan.royal_clima_rcb_150', 'percentage_step')|float(0) %}
+          {% set speed_current  = speed_min %}
+          {% set speed_max = states("sensor.maksimalnaia_skorost_brizera")|float(0) %}
+          {% set speed_step = (speed_max - speed_min) / hysteresis %}
+          {% set co2_delta  = co2 - co2_target %}
+          {% if co2_delta < 0 %}
+          {% set speed_current = 0 %}
+          {% endif %}
+          {% if co2_delta > 0 %}
+          {% set speed_current = speed_min + co2_delta * speed_step %}
+          {% endif %}
+          {% if is_state("fan.royal_clima_rcb_150", "on") and speed_current < speed_min and co2 > co2_target %}
+          {% set speed_current = speed_min %}
+          {% endif %}
+          {% if is_state("fan.royal_clima_rcb_150", "off") and co2 < co2_minimum %}
+          {% set speed_current = 0 %}
+          {% endif %}
+          {{speed_current|round(0)}}
+
+      - name: "Целевая скорость бризера (алгоритм целевого значения)"
+        unit_of_measurement: "%"
+        icon: "mdi:fan-auto"
+        state: >
+          {% set last_value = states("sensor.poslednee_znachenie_uglikislogo_gaza_v_spalne")|int(0) %}
+          {% set current_value = states("sensor.0x00124b002a61a064_co2")|int(0) %}
+          {% set target_value = states("input_number.minimum_value_for_breezer")|int(0) %}
+          {% set delta = states("input_number.delta_value_for_breezer")|int(0) %}
+          {% set current_speed = states("sensor.skorost_brizera")|float(0) %}
+          {% set speed_max = states("sensor.maksimalnaia_skorost_brizera")|float(0) %}
+          {% set new_speed = current_speed %}
+          {% set step = state_attr('fan.royal_clima_rcb_150', 'percentage_step')|float(0) %}
+          {% if current_value > (target_value + delta) %}
+          {% if current_value >= last_value %}
+          {% set new_speed = current_speed + step %}
+          {% endif %}
+          {% if current_value < last_value %}
+          {% set new_speed = current_speed %}
+          {% endif %}
+          {% endif %}
+          {% if current_value < (target_value - delta) %}
+          {% if current_value > last_value %}
+          {% set new_speed = current_speed %}
+          {% endif %}
+          {% if current_value < last_value %}
+          {% set new_speed = current_speed - step %}
+          {% endif %}
+          {% endif %}
+          {% if current_value < (target_value + delta) and current_value > (target_value - delta) %}
+          {% set new_speed = current_speed %}
+          {% endif %}
+          {% if current_value < (target_value - delta) %}
+          {% set new_speed = 0 %}
+          {% endif %}
+          {{new_speed|round(0)}}
+
+      - name: "Целевая скорость бризера (алгоритм 2)"
+        unit_of_measurement: "%"
+        icon: "mdi:fan-auto"
+        state: >
+          {% set current_CO2 = states("sensor.0x00124b002a61a064_co2")|int(0) %}
+          {% set target_CO2 = states("input_number.minimum_value_for_breezer")|int(0) %}
+          {% set delta = states("input_number.delta_value_for_breezer")|int(0) %}
+          {% set current_speed = states("sensor.skorost_brizera")|float(0) %}
+          {% set speed_step = state_attr('fan.royal_clima_rcb_150', 'percentage_step')|float(0) %}
+          {% set speed_max = states("sensor.maksimalnaia_skorost_brizera")|float(0) %}
+          {% set new_speed = current_speed %}
+
+          {% if current_CO2 > (target_CO2 + delta) %}
+          {% set new_speed = current_speed + speed_step %}
+          {% endif %}
+
+          {% if current_CO2 < (target_CO2 - delta) %}
+          {% set new_speed = current_speed - speed_step %}
+          {% endif %}
+
+          {{new_speed|round(0)}}
+
+      ###########
+      - name: "Целевая температура бризера"
+        device_class: temperature
+        unit_of_measurement: "°C"
+        icon: "mdi:thermometer-auto"
+        state: >
+          {% set temperatura_v_spalne = states("sensor.temperatura_v_spalne")|float(0) %}
+          {% set breezer_temperatura_min = state_attr('climate.royal_clima_rcb_150_obogrevatel', 'min_temp')|int(0) %}
+          {% set breezer_temperatura_max = state_attr('climate.royal_clima_rcb_150_obogrevatel', 'max_temp')|int(0) %}
+          {% set temperature_at_which_heating_is_turned_on_in_breezer = states("input_number.temperature_at_which_heating_is_turned_on_in_breezer")|float(0) %}
+          {% set temperature_at_which_max_heating_is_turned_on_in_breezer = states("input_number.temperature_at_which_max_heating_is_turned_on_in_breezer")|float(0) %}
+          {% set temperatura_input_delta = temperature_at_which_heating_is_turned_on_in_breezer - temperature_at_which_max_heating_is_turned_on_in_breezer %}
+          {% set temperatura_room_offcet = temperature_at_which_heating_is_turned_on_in_breezer - temperatura_v_spalne %}
+          {% set temperatura_step = (breezer_temperatura_max - breezer_temperatura_min) / temperatura_input_delta %}
+          {% set target_temperature = breezer_temperatura_min + temperatura_room_offcet * temperatura_step %}
+          {% if target_temperature < breezer_temperatura_min %}
+          {% set target_temperature = breezer_temperatura_min %}
+          {% endif %}
+          {% if target_temperature > breezer_temperatura_max %}
+          {% set target_temperature = breezer_temperatura_max %}
+          {% endif %}
+          {% if temperatura_room_offcet <= 0 %}
+          {% set target_temperature = 0 %}
+          {% endif %}
+          {% if is_state("input_boolean.breezer_day_heating", "off") and is_state("binary_sensor.den", "on") %}
+          {% set target_temperature = 0 %}
+          {% endif %}
+          {{target_temperature|round(0)}}
+
+      - name: "Нагреватель бризера"
+        icon: "mdi:heat-wave"
+        state: >
+          {{states("climate.royal_clima_rcb_150_obogrevatel")}}
+
+  #######
+  - binary_sensor:
+      #######
+      - name: "Надо обновлять скорость бризера"
+        state: >
+          {% set target_speed = states("sensor.finalnaia_skorost_brizera")|float(0) %}
+          {% set current_speed = states("sensor.skorost_brizera")|float(0) %}
+          {% set step_speed = state_attr('fan.royal_clima_rcb_150', 'percentage_step')|float(0) %}
+          {% set step = (target_speed / step_speed)|round(0) %}
+          {% set new_target_speed = (step * step_speed)|round(0) %}
+          {{new_target_speed != current_speed}}
+
+      #######
+      - name: "Надо обновлять обогреватель бризера"
+        state: >
+          {% set target_temperature = states("sensor.tselevaia_temperatura_brizera")|int(0) %}
+          {% set current_temperature = state_attr('climate.royal_clima_rcb_150_obogrevatel', 'temperature')|int(0) %}
+          {% if is_state("climate.royal_clima_rcb_150_obogrevatel", "off") and target_temperature == 0 %}
+          {% set current_temperature = 0 %}
+          {% endif %}
+          {% if is_state("input_boolean.breezer_automation_heating_on", "off") %}
+          {% set target_temperature = current_temperature %}
+          {% endif %}
+          {{target_temperature != current_temperature}}
+
+##############
+automation: #Автоматизации
+  ####
+  # - alias: the last value of carbon dioxide # последнее значение угликислого газа
+  #   id: "2410071822"
+  #   trigger:
+  #     - platform: time_pattern
+  #       minutes: "/15"
+  #   action:
+  #     - delay: 30
+  #     - service: mqtt.publish
+  #       data:
+  #         topic: "climate/sensors/carbon_dioxide/last_value/bedroom"
+  #         payload: >
+  #           {{states("sensor.0x00124b002a61a064_co2")|int(0)}}
+
+  ####
+  - alias: settingFanSpeedInBreezer # Установка оборотов вентилятора
+    id: "2410012329"
+    # condition:
+    #   condition: state
+    #   entity_id: binary_sensor.nado_obnovliat_skorost_brizera
+    #   state: "on"
+    trigger:
+      # - platform: time_pattern
+      #   minutes: "/15"
+    action:
+      - choose:
+          - conditions: "{{states('sensor.finalnaia_skorost_brizera')|int(0) == 0 and is_state('binary_sensor.nado_obnovliat_skorost_brizera', 'on') }}"
+            sequence:
+              - service: fan.turn_off
+                target:
+                  entity_id: fan.royal_clima_rcb_150
+
+      - choose:
+          - conditions: "{{states('sensor.finalnaia_skorost_brizera')|int(0) != 0 and is_state('binary_sensor.nado_obnovliat_skorost_brizera', 'on') }}"
+            sequence:
+              - service: fan.turn_on
+                target:
+                  entity_id: fan.royal_clima_rcb_150
+                data:
+                  percentage: "{{states('sensor.finalnaia_skorost_brizera')|int(0)}}"
+
+  ####
+  - alias: settingHeatTemperatureInBreezer # Установка температуры подогрева
+    id: "2410021425"
+    condition:
+      # condition: state
+      # entity_id: binary_sensor.nado_obnovliat_obogrevatel_brizera
+      # state: "on"
+    trigger:
+      # - platform: time_pattern
+      #   minutes: "/15"
+    action:
+      - choose:
+          - conditions: "{{ states('sensor.tselevaia_temperatura_brizera')|int(0) == 0 and is_state('climate.royal_clima_rcb_150_obogrevatel', 'heat') }}"
+            sequence:
+              - service: climate.set_hvac_mode
+                target:
+                  entity_id: climate.royal_clima_rcb_150_obogrevatel
+                data:
+                  hvac_mode: "off"
+      - choose:
+          - conditions: "{{states('sensor.tselevaia_temperatura_brizera')|int(0) != 0}}"
+            sequence:
+              - service: climate.set_hvac_mode
+                target:
+                  entity_id: climate.royal_clima_rcb_150_obogrevatel
+                data:
+                  hvac_mode: heat
+              - service: climate.set_temperature
+                target:
+                  entity_id: climate.royal_clima_rcb_150_obogrevatel
+                data:
+                  temperature: "{{states('sensor.tselevaia_temperatura_brizera')|int(0)}}"
+                  hvac_mode: heat
+
+  ####
+  - alias: "Breezer_Control"
+    id: "2410281040"
+    trigger:
+      - platform: time_pattern
+        minutes: "/15"
+    action:
+      - choose:
+          - conditions:
+              - condition: state
+                entity_id: binary_sensor.nado_obnovliat_skorost_brizera
+                state: "on"
+            sequence:
+              - if:
+                  - condition: template
+                    value_template: "{{ states('sensor.finalnaia_skorost_brizera')|int(0) == 0 }}"
+                then:
+                  - service: fan.turn_off
+                    target:
+                      entity_id: fan.royal_clima_rcb_150
+                else:
+                  - service: fan.set_percentage
+                    target:
+                      entity_id: fan.royal_clima_rcb_150
+                    data:
+                      percentage: "{{ states('sensor.finalnaia_skorost_brizera')|int(0) }}"
+      - delay:
+          seconds: 10
+      - choose:
+          - conditions:
+              - condition: state
+                entity_id: binary_sensor.nado_obnovliat_obogrevatel_brizera
+                state: "on"
+              - condition: template
+                value_template: "{{ states('sensor.finalnaia_skorost_brizera')|int(0) > 0 }}"
+            sequence:
+              - if:
+                  - condition: template
+                    value_template: "{{ states('sensor.tselevaia_temperatura_brizera')|int(0) == 0 }}"
+                then:
+                  - service: climate.turn_off
+                    target:
+                      entity_id: climate.royal_clima_rcb_150_obogrevatel
+                else:
+                  - service: climate.set_temperature
+                    target:
+                      entity_id: climate.royal_clima_rcb_150_obogrevatel
+                    data:
+                      temperature: "{{ states('sensor.tselevaia_temperatura_brizera')|int(0) }}"
+                      hvac_mode: heat
+      - delay:
+          seconds: 120
+      - service: mqtt.publish
+        data:
+          topic: "climate/sensors/carbon_dioxide/last_value/bedroom"
+          payload: >
+            {{ states('sensor.0x00124b002a61a064_co2')|int(0) }}

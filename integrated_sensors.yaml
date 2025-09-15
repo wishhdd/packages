@@ -1,0 +1,430 @@
+#########
+template:
+  #######
+
+  #######
+  - binary_sensor:
+      #######
+
+      ###########
+      - name: "Open windows"
+        delay_on:
+          minutes: 1
+        delay_off:
+          minutes: 1
+        state: >
+          {{ is_state('binary_sensor.loggia_sensor02_contact', 'on')
+              or is_state('binary_sensor.loggia_sensor03_contact', 'on')
+              or is_state('binary_sensor.loggia_sensor03_contact', 'on')
+              or is_state('binary_sensor.hall_sensor05_contact', 'on') }}
+        device_class: "window"
+        attributes:
+          bedroom_window: "{{ states('binary_sensor.bedroom_sensor01_contact') }}"
+          loggia_windowR: "{{ states('binary_sensor.loggia_sensor02_contact') }}"
+          loggia_windowL: "{{ states('binary_sensor.loggia_sensor03_contact') }}"
+          окно_в_зале: "{{ states('binary_sensor.hall_sensor05_contact') }}"
+
+      ###########
+      - name: "Протечка воды"
+        state: >
+          {{ is_state('binary_sensor.bathroom_sensor03_water_leak', 'on')
+              or is_state('binary_sensor.toilet_sensor01_water_leak', 'on')
+              or is_state('binary_sensor.kitchen_sensor06_water_leak', 'on')
+              or is_state('binary_sensor.kitchen_sensor03_water_leak', 'on') }}
+        device_class: "moisture"
+        attributes:
+          Протечка_в_ванной: "{{ states('binary_sensor.bathroom_sensor03_water_leak') }}"
+          Протечка_в_туалете: "{{ states('binary_sensor.toilet_sensor01_water_leak') }}"
+          Протечка_на_кухне: "{{ states('binary_sensor.kitchen_sensor06_water_leak') }}"
+          Протечка_под_фильтром: "{{ states('binary_sensor.kitchen_sensor03_water_leak') }}"
+
+      ###########
+      - name: "Протечка батареи отопления"
+        state: >
+          {{ is_state('binary_sensor.bedroom_sensor03_water_leak', 'on')
+              or is_state('binary_sensor.hall_sensor04_water_leak', 'on')
+              or is_state('binary_sensor.kitchen_sensor05_water_leak', 'on') }}
+        device_class: "moisture"
+        attributes:
+          Протечка_в_спальне: "{{ states('binary_sensor.bedroom_sensor03_water_leak') }}"
+          Протечка_в_зале: "{{ states('binary_sensor.hall_sensor04_water_leak') }}"
+          Протечка_в_кухне: "{{ states('binary_sensor.kitchen_sensor05_water_leak') }}"
+
+      ###########
+      - name: "Дверной звонок"
+        icon: mdi:bell-ring
+        state: >
+          {% if is_state('binary_sensor.street_ringBtn_contact', 'on') %}
+          off
+          {% else %}
+          on
+          {% endif %}
+        device_class: "sound"
+      ###########
+      - name: "День"
+        device_class: "light"
+        state: "{{ ((now().hour|float(0)+((now().minute|float(0))/60)|float(0))|float(0) > 7.5) and ((now().hour|float(0)+((now().minute|float(0))/60)|float(0))|float(0) < 21.1)}}"
+
+      ###########
+      - name: "Подсветка раб места"
+        device_class: "light"
+        state: "{{is_state('sun.sun', 'below_horizon') and is_state('device_tracker.asus', 'home')}}"
+
+      ###########
+      - name: "Семья дома"
+        state: >
+          {{ is_state('device_tracker.cet_lx9', 'home')
+              or is_state('device_tracker.huawei_mate_20_56d6e5578c', 'home')
+          }}
+        device_class: "moisture"
+        attributes:
+          Mate20: "{{ states('device_tracker.huawei_mate_20_56d6e5578c') }}"
+          MateLena: "{{ states('device_tracker.cet_lx9') }}"
+
+  ###########
+  - sensor:
+      ###########
+      # - name: "Пылисос vacuum.status_desc"
+      #   state: >
+      #     {{ state_attr('vacuum.xiaomi_b106eu_4f70_robot_cleaner_2', 'vacuum.status_desc') }}
+      ###########
+      ###########
+      - name: "Hall temperature"
+        state_class: measurement
+        device_class: temperature
+        unit_of_measurement: °C
+        state: >
+          {{ ((states('sensor.hall_sensor02_temperature') | float(18) + states('sensor.hall_sensor01_temperature') | float(18) + states('sensor.hall_co2_temperature') | float(18)) / 3) | round(2)}}
+        attributes:
+          у_окна: "{{ states('sensor.hall_sensor01_temperature') }}"
+          за_TV: "{{ states('sensor.hall_co2_temperature') }}"
+          у_кровати: "{{ states('sensor.hall_sensor02_temperature') }}"
+
+      ###########
+      - name: "Hall humidity"
+        state_class: measurement
+        device_class: humidity
+        unit_of_measurement: "%"
+        state: >
+          {{ ((states('sensor.hall_sensor02_humidity') | float(40) + states('sensor.hall_sensor01_humidity') | float(40) + states('sensor.hall_co2_humidity') | float(40)) / 3) | round(1)}}
+        attributes:
+          у_окна: "{{ states('sensor.hall_sensor01_humidity') }}"
+          за_TV: "{{ states('sensor.hall_co2_humidity') }}"
+          у_кровати: "{{ states('sensor.hall_sensor02_humidity') }}"
+
+      ###########
+      - name: "Температура в спальне"
+        state_class: measurement
+        device_class: temperature
+        unit_of_measurement: °C
+        state: >
+          {{ ((states('sensor.bedroom_sensor02_temperature') | float(18) + states('sensor.0x00124b002a61a064_temperature_1') | float(18)) / 2) | round(2)}}
+        attributes:
+          у_тумбочки: "{{ states('sensor.bedroom_sensor02_temperature') }}"
+          на_комоде: "{{ states('sensor.0x00124b002a61a064_temperature_1') }}"
+
+      ###########
+      - name: "Средняя температура на лоджии"
+        state_class: measurement
+        device_class: temperature
+        unit_of_measurement: °C
+        state: >
+          {{ ((states('sensor.loggia_sensor01_temperature') | float(18) + states('sensor.cgllc_s1_d143_temperature') | float(18)) / 2) | round(2)}}
+        attributes:
+          у_эл_щитка: "{{ states('sensor.loggia_sensor01_temperature') }}"
+          у_ПК: "{{ states('sensor.cgllc_s1_d143_temperature') }}"
+
+      ###########
+      - name: "Средняя влажность на лоджии"
+        state_class: measurement
+        device_class: humidity
+        unit_of_measurement: "%"
+        state: >
+          {{ ((states('sensor.loggia_sensor01_humidity') | float(40) + states('sensor.cgllc_s1_d143_environment') | float(40)) / 2) | round(1)}}
+        attributes:
+          у_эл_щитка: "{{ states('sensor.loggia_sensor01_humidity') }}"
+          у_ПК: "{{ states('sensor.cgllc_s1_d143_environment') }}"
+
+      ###########
+      - name: "Влажность в спальне"
+        state_class: measurement
+        device_class: humidity
+        unit_of_measurement: "%"
+        state: >
+          {{ ((states('sensor.bedroom_sensor02_humidity') | float(40) + states('sensor.0x00124b002a61a064_humidity_1') | float(40)) / 2) | round(1)}}
+        attributes:
+          у_тумбочки: "{{ states('sensor.bedroom_sensor02_humidity') }}"
+          на_комоде: "{{ states('sensor.0x00124b002a61a064_humidity_1') }}"
+
+      ###########
+      - name: "Счетчика холодной воды"
+        state_class: total_increasing
+        device_class: water
+        unit_of_measurement: "m³"
+        icon: mdi:water-plus-outline
+        state: >
+          {{ states('sensor.0xa4c1380ef43db1de_volume_2') | float(0) / 1000 }}
+        availability: >
+          {{ states('sensor.0xa4c1380ef43db1de_volume_2') not in ['unknown', 'unavailable'] }}
+
+      ###########
+      - name: "Счетчика горячей воды"
+        state_class: total_increasing
+        device_class: water
+        unit_of_measurement: "m³"
+        icon: mdi:water-plus
+        state: >
+          {{ states('sensor.0xa4c1380ef43db1de_volume_1') | float(0) / 1000 }}
+        availability: >
+          {{ states('sensor.0xa4c1380ef43db1de_volume_1') not in ['unknown', 'unavailable'] }}
+
+      ###########
+      - name: "Атмосферное давление"
+        state_class: measurement
+        device_class: pressure
+        unit_of_measurement: "mmHg"
+        icon: mdi:gauge
+        state: >
+          {{ (states('sensor.street_sensor02_pressure') | float(0) * 0.750064) | round(0) }}
+        availability: >
+          {{ states('sensor.street_sensor02_pressure') not in ['unknown', 'unavailable'] }}
+
+      ###########
+      - name: "Средняя температура на кухни и лоджии"
+        state_class: measurement
+        device_class: temperature
+        unit_of_measurement: °C
+        state: >
+          {{ ((states('sensor.kitchen_sensor02_temperature') | float(18)
+          + states('sensor.loggia_sensor01_temperature') | float(18)
+          + states('sensor.cgllc_s1_d143_temperature') | float(18)) / 3) | round(2)}}
+        attributes:
+          на_кухне: "{{ states('sensor.kitchen_sensor02_temperature') }}"
+          у_эл_щитка: "{{ states('sensor.loggia_sensor01_temperature') }}"
+          у_ПК: "{{ states('sensor.cgllc_s1_d143_temperature') }}"
+
+      ###########
+      - name: "Телевизор в зале"
+        state: >
+          {%if is_state('switch.loggiaplug01', 'off') %}
+            power_off
+          {% elif states('sensor.hall_socket02_power')|float(0) < 30 %}
+            standby
+          {% elif states('sensor.hall_socket02_power')|float(0) > 30 %}
+            work
+          {% else %}
+            failed
+          {% endif %}
+        icon: >
+          {% if is_state("sensor.televizor_v_zale", "power_off") %}
+              mdi:power-plug-off
+          {% elif is_state("sensor.televizor_v_zale", "standby") %}
+              mdi:television-off
+          {% elif is_state("sensor.televizor_v_zale", "work") %}
+              mdi:television
+          {% else %}
+              mdi:alert
+          {% endif %}
+
+      ###########
+      - name: "Направление ветра"
+        state_class: measurement
+        unit_of_measurement: °
+        state: >
+          {{state_attr('weather.yandexweather', 'wind_bearing')|float(0)}}
+
+      - name: "NAS Fan Speed Level"
+        unique_id: nas_fan_speed_level
+        state: >-
+          {% set speed = states('sensor.nas_fan_speed') | int(0) %}
+          {% if speed > 3000 %}
+            Высокая скорость
+          {% elif speed == 3000 %}
+            Низкая скорость
+          {% elif speed == 0 %}
+            Выключен
+          {% else %}
+            Неизвестно ({{ speed }} RPM)
+          {% endif %}
+        icon: >-
+          {% if states('sensor.nas_fan_speed') | int(0) > 0 %}
+            mdi:fan
+          {% else %}
+            mdi:fan-off
+          {% endif %}
+
+###########
+rest:
+  ###########
+  - resource: http://192.168.1.105:8088/emmc_health.json
+    sensor:
+      - name: "eMMC Health"
+        unique_id: emmc_health_rest_v1
+        value_template: "{{ value_json.wear_percentage }}"
+        unit_of_measurement: "%"
+        icon: mdi:harddisk
+        json_attributes:
+          - "life_a"
+          - "life_b"
+          - "pre_eol"
+          - "error"
+
+  - resource: http://192.168.1.5/monitoring_data/nas_performance.json
+    sensor:
+      - name: "NAS CPU Usage Percent"
+        unique_id: nas_cpu_usage_percent
+        value_template: "{{ value_json.cpu_usage_percent  }}"
+        unit_of_measurement: "%"
+        icon: mdi:chip
+
+      - name: "NAS CPU Usage 1step Percent"
+        unique_id: nas_cpu_usage_1step_percent
+        value_template: "{{ value_json.cpu_load_1  }}"
+        unit_of_measurement: "%"
+        icon: mdi:chart-line
+
+      - name: "NAS CPU Usage 5step Percent"
+        unique_id: nas_cpu_usage_5step_percent
+        value_template: "{{ value_json.cpu_load_5  }}"
+        unit_of_measurement: "%"
+        icon: mdi:chart-line
+
+      - name: "NAS CPU Usage 15step Percent"
+        unique_id: nas_cpu_usage_15step_percent
+        value_template: "{{ value_json.cpu_load_15  }}"
+        unit_of_measurement: "%"
+        icon: mdi:chart-line
+
+      - name: "NAS Memory Used Percent"
+        unique_id: nas_memory_used_percent
+        value_template: "{{ value_json.memory_used_percent   }}"
+        unit_of_measurement: "%"
+        icon: mdi:memory
+
+      - name: "NAS Swap Used"
+        unique_id: nas_swap_used
+        value_template: "{{ value_json.swap_used_mb   }}"
+        unit_of_measurement: "mb"
+        icon: mdi:swap-horizontal
+
+      - name: "NAS Swap Total"
+        unique_id: nas_swap_total
+        value_template: "{{ value_json.swap_total_mb   }}"
+        unit_of_measurement: "mb"
+        icon: mdi:database
+
+      - name: "NAS CPU Temperature"
+        unique_id: nas_cpu_temperature
+        value_template: "{{ value_json.cpu_temp_c    }}"
+        unit_of_measurement: "°C"
+        icon: mdi:thermometer
+
+      - name: "NAS Fan Speed"
+        unique_id: nas_fan_speed
+        value_template: "{{ value_json.fan_speed_rpm     }}"
+        unit_of_measurement: "RPM"
+        icon: mdi:fan
+
+  - resource: http://192.168.1.5/monitoring_data/sda.json
+    sensor:
+      # --- sda ---
+      - name: "Disk sda Health Status"
+        unique_id: disk_sda_health_status
+        value_template: "{{ value_json.health_status }}"
+        icon: mdi:shield-check
+
+      - name: "Disk sda Temperature"
+        unique_id: disk_sda_temperature
+        value_template: "{{ value_json.temperature }}"
+        unit_of_measurement: "°C"
+        device_class: temperature
+        icon: mdi:thermometer
+
+      - name: "Disk sda Partition 1 Size"
+        unique_id: disk_sda_part1_size
+        value_template: "{{ value_json.partitions[0].size }}"
+        unit_of_measurement: "GB"
+        icon: mdi:harddisk
+
+      - name: "Disk sda Partition 1 Used"
+        unique_id: disk_sda_part1_used
+        value_template: "{{ value_json.partitions[0].used }}"
+        unit_of_measurement: "GB"
+        icon: mdi:harddisk
+
+      - name: "Disk sda Partition 1 Available"
+        unique_id: disk_sda_part1_avail
+        value_template: "{{ value_json.partitions[0].avail }}"
+        unit_of_measurement: "GB"
+        icon: mdi:harddisk
+
+      - name: "Disk sda Partition 1 Usage Percent"
+        unique_id: disk_sda_part1_use_percent
+        value_template: "{{ value_json.partitions[0].use_percent }}"
+        unit_of_measurement: "%"
+        icon: mdi:percent
+
+    binary_sensor:
+      - name: "Disk sda Health Passed"
+        unique_id: disk_sda_health_passed
+        value_template: "{{ value_json.health_passed }}"
+        icon: mdi:check-circle
+        device_class: connectivity # булево значение
+
+      - name: "Disk sda check needed"
+        unique_id: disk_sda_check_needed
+        value_template: "{{ value_json.check_needed }}"
+        icon: mdi:check-circle
+        device_class: connectivity # булево значение
+
+  - resource: http://192.168.1.5/monitoring_data/sdb.json
+    sensor:
+      # --- sdb ---
+      - name: "Disk sdb Health Status"
+        unique_id: disk_sdb_health_status
+        value_template: "{{ value_json.health_status }}"
+        icon: mdi:shield-check
+
+      - name: "Disk sdb Temperature"
+        unique_id: disk_sdb_temperature
+        value_template: "{{ value_json.temperature }}"
+        unit_of_measurement: "°C"
+        device_class: temperature
+        icon: mdi:thermometer
+
+      - name: "Disk sdb Partition 1 Size"
+        unique_id: disk_sdb_part1_size
+        value_template: "{{ value_json.partitions[0].size }}"
+        unit_of_measurement: "GB"
+        icon: mdi:harddisk
+
+      - name: "Disk sdb Partition 1 Used"
+        unique_id: disk_sdb_part1_used
+        value_template: "{{ value_json.partitions[0].used }}"
+        unit_of_measurement: "GB"
+        icon: mdi:harddisk
+
+      - name: "Disk sdb Partition 1 Available"
+        unique_id: disk_sdb_part1_avail
+        value_template: "{{ value_json.partitions[0].avail }}"
+        unit_of_measurement: "GB"
+        icon: mdi:harddisk
+
+      - name: "Disk sdb Partition 1 Usage Percent"
+        unique_id: disk_sdb_part1_use_percent
+        value_template: "{{ value_json.partitions[0].use_percent }}"
+        unit_of_measurement: "%"
+        icon: mdi:percent
+
+    binary_sensor:
+      - name: "Disk sdb Health Passed"
+        unique_id: disk_sdb_health_passed
+        value_template: "{{ value_json.health_passed }}"
+        icon: mdi:check-circle
+        device_class: connectivity
+
+      - name: "Disk sdb check needed"
+        unique_id: disk_sdb_check_needed
+        value_template: "{{ value_json.check_needed }}"
+        icon: mdi:check-circle
+        device_class: connectivity

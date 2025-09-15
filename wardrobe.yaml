@@ -1,0 +1,158 @@
+###########
+input_number:
+  ###########
+  mciw:
+    name: "Количетсво движений в гардеробе"
+    initial: 0
+    min: 0
+    max: 10
+    step: 0.5
+###########
+
+########
+automation: #Автоматизации
+  ########
+
+  ####
+  - alias: "openingWater" # Открываем воду
+    trigger:
+      platform: state
+      entity_id: switch.wardrobe_switch01_left
+      to: "on"
+      for:
+        seconds: 20
+    action:
+      - service: switch.turn_off
+        data:
+          entity_id: switch.wardrobe_switch01_left
+      - service: notify.telegram
+        data:
+          message: "Вода открыта"
+
+  ####
+  - alias: "closingWater" # Выключаем воду
+    trigger:
+      platform: state
+      entity_id: switch.wardrobe_switch01_center
+      to: "on"
+      for:
+        seconds: 20
+    action:
+      - service: switch.turn_off
+        target:
+          entity_id:
+            - switch.wardrobe_switch01_center
+            - switch.street_ring # звоним в звонок
+      - service: notify.telegram
+        data:
+          message: "Вода закрыта"
+
+  ####
+  - alias: "leftAndCenter" # Переключаем клавиши
+    trigger:
+      platform: state
+      entity_id: switch.wardrobe_switch01_left
+      to: "on"
+    action:
+      - service: switch.turn_off
+        target:
+          entity_id: switch.wardrobe_switch01_center
+
+  ####
+  - alias: "CenterAndLeft" # Переключаем клавиши
+    trigger:
+      platform: state
+      entity_id: switch.wardrobe_switch01_center
+      to: "on"
+    action:
+      - service: switch.turn_off
+        target:
+          entity_id: switch.wardrobe_switch01_left
+
+  ####
+  - alias: "turnOffWater"
+    trigger:
+      platform: state
+      entity_id: binary_sensor.protechka_vody
+      to: "on"
+      for:
+        seconds: 5
+    action:
+      - service: notify.telegram
+        data:
+          message: "Перекрываю воду"
+      - service: switch.turn_on
+        target:
+          entity_id:
+            - switch.wardrobe_switch01_center
+            - switch.street_ring # звоним в звонок
+
+  ####
+  - alias: "heating_battery_leaking" # Батарея отопления потекла
+    trigger:
+      platform: state
+      entity_id: binary_sensor.protechka_batarei_otopleniia
+      to: "on"
+      for:
+        seconds: 5
+    action:
+      - service: notify.telegram
+        data:
+          message: "Батарея потекла"
+      - service: switch.turn_on
+        target:
+          entity_id: switch.street_ring # звоним в звонок
+
+  ####
+  - alias: "turnOnLightWardrobe" # Включение света в гардеробе
+    trigger:
+      platform: state
+      entity_id: binary_sensor.0x00124b00251732be_occupancy
+      to: "on"
+    action:
+      - service: switch.turn_on
+        target:
+          entity_id: switch.wardrobe_switch01_right
+      - service: input_number.increment
+        data:
+          entity_id: input_number.mciw
+
+  ####
+  - alias: "inputNumberIncrementLightWardrobe" # набираем очки
+    trigger:
+      platform: state
+      entity_id: binary_sensor.0x00124b00251732be_occupancy
+      to: "on"
+    action:
+      - service: input_number.increment
+        data:
+          entity_id: input_number.mciw
+
+  ####
+  - alias: "turnOffLightWardrobe" # Выключение света в гардеробе
+    trigger:
+      platform: state
+      entity_id: binary_sensor.0x00124b00251732be_occupancy
+      to: "off"
+    action:
+      - delay:
+          minutes: "{{ states('input_number.mciw') | int(1) }}"
+      - service: switch.turn_off
+        target:
+          entity_id: switch.wardrobe_switch01_right
+
+  ####
+  - alias: lightGarderobOff #  Свет выключен в гардеробе, сбрасываем счетчик
+    trigger:
+      - platform: state
+        entity_id: switch.wardrobe_switch01_right
+        to:
+          - "off"
+        for:
+          minutes: 1
+    action:
+      - service: input_number.set_value
+        target:
+          entity_id: input_number.mciw
+        data:
+          value: 0

@@ -1,0 +1,74 @@
+##############
+automation: #Автоматизации
+  ##############
+
+  ####
+  - alias: "toggleDoorSensor" # Оповещение об изменении состояния датчиков дверей
+    condition:
+      - condition: state
+        entity_id: binary_sensor.semia_doma
+        state: "off"
+        for:
+          minutes: 3
+    trigger:
+      - platform: state
+        entity_id:
+          - binary_sensor.bedroom_sensor04_contact
+          - binary_sensor.hall_sensor03_contact
+          - binary_sensor.toilet_sensor02_contact
+          - binary_sensor.bathroom_sensor02_contact
+        to:
+          - "on"
+          - "off"
+    action:
+      - service: notify.telegram
+        data:
+          title: "🚨 Охрана: Датчик двери!"
+          message: >
+            Датчик '{{ trigger.to_state.name }}' был
+            {% if trigger.to_state.state == 'on' %}
+              открыт
+            {% else %}
+              закрыт
+            {% endif %}
+            .
+
+  ####
+  - alias: "toggleMotionSensor" # Оповещение о движении
+    condition:
+      - condition: state
+        entity_id: binary_sensor.semia_doma
+        state: "off"
+        for:
+          minutes: 3
+    trigger:
+      - platform: state
+        entity_id:
+          - binary_sensor.0x00124b00251732be_occupancy
+          - binary_sensor.toilet_sensor03_occupancy
+          - binary_sensor.0xa4c13864d6e9739b_occupancy
+          - binary_sensor.kitchen_sensor01_occupancy
+        to: "on"
+    action:
+      - service: notify.telegram
+        data:
+          title: "🚨 Охрана: Движение!"
+          message: "Обнаружено движение: {{ trigger.to_state.name }}."
+
+  ###
+  - alias: "turnOffLight" #выключаем свет на ночь
+    condition:
+      condition: state
+      entity_id: binary_sensor.semia_doma
+      state: "off"
+      for:
+        minutes: 3
+    trigger:
+      platform: time
+      at: "23:10:00"
+    action:
+      - service: switch.turn_off
+        target:
+          entity_id:
+            - switch.kitchen_socketx2_01_l2 #свет на кухне
+            - switch.hall_socketx4_01_l2 #свет в зале

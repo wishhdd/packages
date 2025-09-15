@@ -1,0 +1,92 @@
+#########
+template:
+  #######
+  #######
+  - sensor:
+      #######
+      - name: "Режим работы очистителя воздуха 1"
+        state: "{{ state_attr('fan.zhimi_cpa4_8dfb_air_purifier', 'preset_mode') }}"
+
+  #######
+  - binary_sensor:
+      #######
+
+      - name: "pm25 density"
+        delay_on:
+          minutes: 1
+        delay_off:
+          minutes: 5
+        state: >
+          {% if state_attr('sensor.zhimi_cpa4_8dfb_pm25_density_2', 'environment.pm2_5_density')|float(0) < 16 %}
+          off
+          {% else %}
+          on
+          {% endif %}
+        device_class: "smoke"
+
+# ########
+automation: #Автоматизации
+  ########
+
+  ####
+  - id: "2311121755"
+    alias: "cleaner in off"
+    trigger:
+      - platform: state
+        entity_id: binary_sensor.semia_doma
+        to: "off"
+      - platform: state
+        entity_id: binary_sensor.open_windows
+        to: "on"
+    action:
+      - service: fan.turn_off
+        target:
+          entity_id: fan.zhimi_cpa4_8dfb_air_purifier
+
+  - id: "2401282252"
+    alias: "enabling the filter if more than 16"
+    trigger:
+      - platform: state
+        entity_id: binary_sensor.pm25_density
+        to: "on"
+    action:
+      - service: fan.turn_on
+        target:
+          entity_id: fan.zhimi_cpa4_8dfb_air_purifier
+
+  - id: "2401282258"
+    alias: "disabling the filter if less than 16"
+    trigger:
+      - platform: state
+        entity_id: binary_sensor.pm25_density
+        to: "off"
+    action:
+      - service: fan.turn_off
+        target:
+          entity_id: fan.zhimi_cpa4_8dfb_air_purifier
+
+  - id: "2409301354"
+    alias: "lower the speed if the humidifier is on"
+    trigger:
+      - platform: state
+        entity_id: switch.hall_socketx4_01_l4
+        to: "on"
+    action:
+      - action: fan.set_preset_mode
+        target:
+          entity_id: fan.zhimi_cpa4_8dfb_air_purifier
+        data:
+          preset_mode: Favorite
+
+  - id: "2409301420"
+    alias: "fun normal mode"
+    trigger:
+      - platform: state
+        entity_id: switch.hall_socketx4_01_l4
+        to: "off"
+    action:
+      - action: fan.set_preset_mode
+        target:
+          entity_id: fan.zhimi_cpa4_8dfb_air_purifier
+        data:
+          preset_mode: Auto

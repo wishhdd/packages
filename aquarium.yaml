@@ -1,0 +1,284 @@
+##############
+input_datetime:
+  ##############
+  turning_on_small_light:
+    name: Включение малого света
+    has_date: false
+    has_time: true
+  turning_off_small_light:
+    name: Выключение малого света
+    has_date: false
+    has_time: true
+  turning_on_big_light:
+    name: Включение большого света
+    has_date: false
+    has_time: true
+  turning_off_big_light:
+    name: Выключение большого света
+    has_date: false
+    has_time: true
+  turning_on_aeration:
+    name: Включение аэрации
+    has_date: false
+    has_time: true
+  turning_off_aeration:
+    name: Выключение аэрации
+    has_date: false
+    has_time: true
+
+##############
+input_number:
+  break_length_in_aquarium:
+    name: Перерыв в аквариуме в минутах
+    icon: mdi:camera-timer
+    initial: 240
+    min: 0
+    max: 255
+    step: 15
+  hysteresis_of_aquarium_cooling:
+    name: Гистерезис охлаждения аквариума
+    icon: mdi:delta
+    initial: 2
+    min: 0.5
+    max: 4
+    step: 0.5
+  maximum_target_temperature:
+    name: Mаксимальная целевая температура
+    icon: mdi:water-thermometer
+    initial: 25.5
+    min: 20
+    max: 33
+    step: 0.5
+
+#########
+template:
+  #######
+  ###########
+  - sensor:
+      ###########
+      - name: "Середина света timestamp"
+        icon: "mdi:clock-time-one-outline"
+        state: >
+          {{
+          (state_attr('input_datetime.turning_off_big_light' , 'timestamp')
+          - state_attr('input_datetime.turning_on_big_light' , 'timestamp'))/2
+          }}
+
+      ###########
+      - name: "Начало перерыва в акварицме"
+        icon: "mdi:clock-time-one-outline"
+        device_class: timestamp
+        state: >
+          {%- set seredina_duration = states('sensor.seredina_sveta_timestamp')|int(0) -%}
+          {%- set polovina_pereryva_seconds = states('input_number.break_length_in_aquarium')|int(0) * 30 -%}
+          {%- set on_time_seconds = state_attr('input_datetime.turning_on_big_light', 'timestamp')|int(0) -%}
+          {%- set seconds_from_midnight = on_time_seconds + seredina_duration - polovina_pereryva_seconds -%}
+          {{ today_at("00:00") + timedelta(seconds=seconds_from_midnight) }}
+        attributes:
+          formatted_time: "{{ this.state | as_timestamp(default=0) | timestamp_custom('%H:%M', true) }}"
+
+      ###########
+      - name: "Конец перерыва в акварицме"
+        icon: "mdi:clock-time-eight-outline"
+        device_class: timestamp
+        state: >
+          {%- set seredina_duration = states('sensor.seredina_sveta_timestamp')|int(0) -%}
+          {%- set polovina_pereryva_seconds = states('input_number.break_length_in_aquarium')|int(0) * 30 -%}
+          {%- set on_time_seconds = state_attr('input_datetime.turning_on_big_light', 'timestamp')|int(0) -%}
+          {%- set seconds_from_midnight = on_time_seconds + seredina_duration + polovina_pereryva_seconds -%}
+          {{ today_at("00:00") + timedelta(seconds=seconds_from_midnight) }}
+        attributes:
+          formatted_time: "{{ this.state | as_timestamp(default=0) | timestamp_custom('%H:%M', true) }}"
+
+      ###########
+      - name: "Целевые обороты вентилятора в аквариуме"
+        unit_of_measurement: "rpm"
+        icon: "mdi:fan-auto"
+        state: >
+          {% set hysteresis  = states("input_number.hysteresis_of_aquarium_cooling")|float(0) %}
+          {% set temperature_target  = states("input_number.maximum_target_temperature")|float(0) %}
+          {% set temperature  = states("sensor.aquarium_sensor01_temperature")|float(0) %}
+          {% set pressure_size  = 0 %}
+          {% if is_state("light.aquarium_fan01", "on") %}
+          {% set pressure_size = states("input_number.hysteresis_of_aquarium_cooling")|float(0)/8 %}
+          {% endif %}
+          {% set speed_min  = 50 %}
+          {% set speed_current  = speed_min %}
+          {% set speed_max  = states("sensor.maksimalnye_oborty_ventiliatra_v_akvariume")|float(0) %}
+          {% set speed_step  =  (speed_max-speed_min)/hysteresis %}
+          {% set temperature_delta  = pressure_size + temperature - temperature_target %}
+          {% if temperature_delta < 0 %}
+          {% set speed_current = 0 %}
+          {% endif %}
+          {% if temperature_delta > 0 %}
+          {% set speed_current = speed_min+temperature_delta*speed_step %}
+          {% endif %}
+          {% if speed_current > speed_max %}
+          {% set speed_current = speed_max %}
+          {% endif %}
+          {{speed_current|round(0)}}
+
+      - name: "Обороты вентилятора в аквариуме"
+        unit_of_measurement: "rpm"
+        icon: "mdi:fan"
+        state: >
+          {{state_attr('light.aquarium_fan01', 'brightness')|int(0)}}
+
+      ###########
+      - name: "Максимальные оборты вентилятра в аквариуме"
+        unit_of_measurement: "rpm"
+        icon: "mdi:fan-speed-3"
+        state: >
+          {% set speed_max  = 250 %}
+          {% if is_state("binary_sensor.den", "off") %}
+          {% if is_state("binary_sensor.semia_doma", "on") %}
+          {% set speed_max = speed_max/2 %}
+          {% endif %}
+          {% endif %}
+          {{speed_max|round(0)}}
+
+##############
+automation:
+  ##############
+  ####
+  - alias: turnOnCompressorInAquarium # включить компрессор в аквариуме
+    trigger:
+      platform: time
+      at: input_datetime.turning_on_aeration
+    action:
+      - service: switch.turn_on
+        target:
+          entity_id: switch.aquarium_switch01
+  ####
+  - alias: turnOffCompressorInAquarium # выключить компрессор в аквариуме
+    trigger:
+      platform: time
+      at: input_datetime.turning_off_aeration
+    action:
+      - service: switch.turn_off
+        target:
+          entity_id: switch.aquarium_switch01
+  ####
+  - alias: turnOnSmallLightInQquarium # включить малый свет в аквариуме
+    trigger:
+      platform: time
+      at: input_datetime.turning_on_small_light
+    action:
+      - service: switch.turn_on
+        target:
+          entity_id: switch.aquarium_light01
+  ####
+  - alias: turnOffSmallLightInQquarium # выключить малый свет в аквариуме
+    trigger:
+      platform: time
+      at: input_datetime.turning_off_small_light
+    action:
+      - service: switch.turn_off
+        target:
+          entity_id: switch.aquarium_light01
+  ####
+  - alias: turnOnBigLightInQquarium # включить большой свет в аквариуме
+    trigger:
+      platform: time
+      at: input_datetime.turning_on_big_light
+    action:
+      - service: switch.turn_on
+        target:
+          entity_id: switch.aquarium_light02
+  ####
+  - alias: turnOffBigLightInQquarium # выключить большой свет в аквариу-ме
+    trigger:
+      platform: time
+      at: input_datetime.turning_off_big_light
+    action:
+      - service: switch.turn_off
+        target:
+          entity_id: switch.aquarium_light02
+  ####
+  - alias: "Big Light - Start Break (vs Algae)" # большой свет перерыв против водорослей выключение
+    trigger:
+      - platform: time
+        at: sensor.nachalo_pereryva_v_akvaritsme
+    action:
+      - service: switch.turn_off
+        target:
+          entity_id: switch.aquarium_light02
+  ####
+  - alias: "Big Light - End Break (vs Algae)" # большой свет перерыв против водорослей включение
+    trigger:
+      - platform: time
+        at: sensor.konets_pereryva_v_akvaritsme
+    action:
+      - service: switch.turn_on
+        target:
+          entity_id: switch.aquarium_light02
+  ####
+  - alias: "Aquarium Overheat Light Shutdown" # Аварийное выключение света при перегреве
+    trigger:
+      - platform: template
+        value_template: >
+          {{ states('sensor.aquarium_sensor01_temperature')|float(0) >
+             (states('input_number.maximum_target_temperature')|float(0) +
+              states('input_number.hysteresis_of_aquarium_cooling')|float(0)) }}
+    condition:
+      - condition: state
+        entity_id: switch.aquarium_light02
+        state: "on"
+    action:
+      - service: switch.turn_off
+        target:
+          entity_id: switch.aquarium_light02
+      - service: notify.telegram
+        data:
+          title: "Аквариум"
+          message: "Критический перегрев! Свет выключен. Температура: {{ trigger.to_state.state }}°C"
+  ####
+  - alias: "Aquarium Temperature Normal Light Restore" # Восстановление света после нормализации температуры
+    trigger:
+      - platform: numeric_state
+        entity_id: sensor.aquarium_sensor01_temperature
+        below: input_number.maximum_target_temperature
+    condition:
+      - condition: state
+        entity_id: switch.aquarium_light02
+        state: "off"
+      - condition: template
+        value_template: >
+          {% set light_on_time = state_attr('input_datetime.turning_on_big_light', 'timestamp') | int(0) %}
+          {% set light_off_time = state_attr('input_datetime.turning_off_big_light', 'timestamp') | int(0) %}
+          {% set break_start_time = state_attr('sensor.nachalo_pereryva_v_akvaritsme', 'timestamp') | int(0) %}
+          {% set break_end_time = state_attr('sensor.konets_pereryva_v_akvaritsme', 'timestamp') | int(0) %}
+          {% set now_ts = now().timestamp() %}
+          {% set is_in_light_day = light_on_time <= now_ts < light_off_time %}
+          {% set is_not_in_break = now_ts < break_start_time or now_ts >= break_end_time %}
+          {{ is_in_light_day and is_not_in_break }}
+    action:
+      - service: switch.turn_on
+        target:
+          entity_id: switch.aquarium_light02
+      - service: notify.telegram
+        data:
+          title: "Аквариум"
+          message: "Температура в норме. Свет включен. Температура: {{ trigger.to_state.state }}°C"
+  ####
+  - alias: settingFanSpeedInAquarium # Установка оборотов вентилятора
+    id: "2409121255"
+    trigger:
+      - platform: time_pattern
+        minutes: "/15"
+    action:
+      - choose:
+          - conditions:
+              - condition: numeric_state
+                entity_id: sensor.tselevye_oboroty_ventiliatora_v_akvariume
+                above: 0
+            sequence:
+              - service: light.turn_on
+                target:
+                  entity_id: light.aquarium_fan01
+                data:
+                  brightness: "{{ states('sensor.tselevye_oboroty_ventiliatora_v_akvariume')|int(0) }}"
+        default:
+          - service: light.turn_off
+            target:
+              entity_id: light.aquarium_fan01
