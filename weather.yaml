@@ -83,7 +83,8 @@ automation: #Автоматизации
                       "partly-cloudy": "Переменная облачность", "rain": "Дождь", "light-rain": "Небольшой дождь",
                       "heavy-rain": "Сильный дождь", "showers": "Ливень", "wet-snow": "Мокрый снег",
                       "light-snow": "Небольшой снег", "snow": "Снег", "snow-showers": "Снегопад", "hail": "Град",
-                      "thunderstorm": "Гроза", "thunderstorm-with-rain": "Дождь с грозой", "thunderstorm-with-hail": "Гроза с градом"
+                      "thunderstorm": "Гроза", "thunderstorm-with-rain": "Дождь с грозой", "thunderstorm-with-hail": "Гроза с градом",
+                      "partlycloudy": "Переменная облачность",
                     } -%}
             {%- set current_condition_key = state_attr(weather_entity, 'yandex_condition') | lower -%}
             {%- set yandex_condition_ru = translations[current_condition_key] | default(current_condition_key | capitalize) -%}
@@ -192,6 +193,7 @@ automation: #Автоматизации
                           thunderstorm: "Гроза"
                           thunderstorm-with-rain: "Дождь с грозой"
                           thunderstorm-with-hail: "Гроза с градом"
+                          partlycloudy: "Переменная облачность"
                         current_cond_ru: >
                           {% if condition_from_api is not none and condition_from_api != "" %}
                             {{ translations[condition_from_api | lower] | default(condition_from_api | capitalize) }}
