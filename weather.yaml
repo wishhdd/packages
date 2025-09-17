@@ -71,6 +71,25 @@ automation: #Автоматизации
       # --- ШАГ 2: Готовим переменные ---
       - variables:
           weather_entity: "weather.yandexweather"
+          translations:
+            clear: "Ясно"
+            sunny: "Солнечно"
+            cloudy: "Облачно"
+            overcast: "Пасмурно"
+            "partly-cloudy": "Переменная облачность"
+            rain: "Дождь"
+            "light-rain": "Небольшой дождь"
+            "heavy-rain": "Сильный дождь"
+            showers: "Ливень"
+            "wet-snow": "Мокрый снег"
+            "light-snow": "Небольшой снег"
+            snow: "Снег"
+            "snow-showers": "Снегопад"
+            hail: "Град"
+            thunderstorm: "Гроза"
+            "thunderstorm-with-rain": "Дождь с грозой"
+            "thunderstorm-with-hail": "Гроза с градом"
+            partlycloudy: "Переменная облачность"
       - service: notify.telegram
         data:
           title: "Прогноз погоды."
@@ -78,14 +97,6 @@ automation: #Автоматизации
             {%- set bearing = state_attr(weather_entity, 'wind_bearing') -%}
             {%- set directions = ['Северный', 'Северо-восточный', 'Восточный', 'Юго-восточный', 'Южный', 'Юго-западный', 'Западный', 'Северо-западный', 'Северный'] -%}
             {%- set wind_direction = directions[((bearing + 22.5) / 45) | int] if bearing is not none else '' -%}
-            {%- set translations = {
-                      "clear": "Ясно", "sunny": "Солнечно", "cloudy": "Облачно", "overcast": "Пасмурно",
-                      "partly-cloudy": "Переменная облачность", "rain": "Дождь", "light-rain": "Небольшой дождь",
-                      "heavy-rain": "Сильный дождь", "showers": "Ливень", "wet-snow": "Мокрый снег",
-                      "light-snow": "Небольшой снег", "snow": "Снег", "snow-showers": "Снегопад", "hail": "Град",
-                      "thunderstorm": "Гроза", "thunderstorm-with-rain": "Дождь с грозой", "thunderstorm-with-hail": "Гроза с градом",
-                      "partlycloudy": "Переменная облачность",
-                    } -%}
             {%- set current_condition_key = state_attr(weather_entity, 'yandex_condition') | lower -%}
             {%- set yandex_condition_ru = translations[current_condition_key] | default(current_condition_key | capitalize) -%}
             За окном: {{ yandex_condition_ru }}.
@@ -135,7 +146,6 @@ automation: #Автоматизации
                         entity_id: input_text.forecast_condition_{{ "%02d" | format((repeat.item.datetime | as_datetime | as_local).hour) }}
                       data:
                         value: >
-                          {% set translations = { "clear": "Ясно", "sunny": "Солнечно", "cloudy": "Облачно", "overcast": "Пасмурно", "partly-cloudy": "Переменная облачность", "rain": "Дождь", "light-rain": "Небольшой дождь", "heavy-rain": "Сильный дождь", "showers": "Ливень", "wet-snow": "Мокрый снег", "light-snow": "Небольшой снег", "snow": "Снег", "snow-showers": "Снегопад", "hail": "Град", "thunderstorm": "Гроза", "thunderstorm-with-rain": "Дождь с грозой", "thunderstorm-with-hail": "Гроза с градом" } %}
                           {% set condition_from_api = repeat.item.condition %}
                           {% if condition_from_api is not none and condition_from_api != "" %}
                             {{ translations[condition_from_api | lower] | default(condition_from_api | capitalize) }}
