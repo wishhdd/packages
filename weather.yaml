@@ -56,6 +56,7 @@ input_text:
 automation: #Автоматизации
   #########
   - alias: "Погода: Утренний отчет и Сохранение прогноза"
+    id: 2509171722
     description: "В 7:00 получает прогноз, шлет отчет в Telegram и сохраняет данные"
     trigger:
       - platform: time
@@ -153,9 +154,11 @@ automation: #Автоматизации
                             Неизвестно
                           {% endif %}
     mode: single
+
   ###
-  - alias: "Погода: Проверка изменений (Экономная)"
-    description: "Раз в несколько часов проверяет прогноз и шлет уведомление при отличиях"
+  - alias: "Погода: Проверка изменений (Улучшенная)"
+    id: 2509171724
+    description: "Раз в несколько часов проверяет прогноз для будущих временных слотов и присылает одно сводное уведомление при отличиях."
     trigger:
       - platform: time
         at:
@@ -168,67 +171,83 @@ automation: #Автоматизации
           - "20:55:00"
           - "22:55:00"
     action:
+      # --- ШАГ 1: Получаем свежий прогноз ---
       - service: weather.get_forecasts
         target:
           entity_id: weather.yandexweather
         data:
           type: hourly
         response_variable: hourly_forecast
-      - repeat:
-          for_each: "{{ hourly_forecast['weather.yandexweather'].forecast }}"
-          sequence:
-            - variables:
-                h: "{{ (repeat.item.datetime | as_datetime | as_local).hour }}"
-            - choose:
-                - conditions: "{{ h in [9, 13, 17, 21, 23] }}"
-                  sequence:
-                    - variables:
-                        current_temp: "{{ repeat.item.temperature }}"
-                        condition_from_api: "{{ repeat.item.condition }}"
-                        translations:
-                          clear: "Ясно"
-                          sunny: "Солнечно"
-                          cloudy: "Облачно"
-                          overcast: "Пасмурно"
-                          partly-cloudy: "Переменная облачность"
-                          rain: "Дождь"
-                          light-rain: "Небольшой дождь"
-                          heavy-rain: "Сильный дождь"
-                          showers: "Ливень"
-                          wet-snow: "Мокрый снег"
-                          light-snow: "Небольшой снег"
-                          snow: "Снег"
-                          snow-showers: "Снегопад"
-                          hail: "Град"
-                          thunderstorm: "Гроза"
-                          thunderstorm-with-rain: "Дождь с грозой"
-                          thunderstorm-with-hail: "Гроза с градом"
-                          partlycloudy: "Переменная облачность"
-                        current_cond_ru: >
-                          {% if condition_from_api is not none and condition_from_api != "" %}
-                            {{ translations[condition_from_api | lower] | default(condition_from_api | capitalize) }}
-                          {% else %}
-                            Неизвестно
-                          {% endif %}
-                        saved_temp: "{{ states('input_number.forecast_temp_' + '%02d' | format(h)) | float(0) }}"
-                        saved_condition: "{{ states('input_text.forecast_condition_' + '%02d' | format(h)) }}"
-                    - condition: template
-                      value_template: "{{ (current_temp - saved_temp) | abs >= 3 or current_cond_ru != saved_condition }}"
-                    - service: notify.telegram
-                      data:
-                        title: "⚠️ Изменение прогноза погоды!"
-                        message: |
-                          Прогноз на {{ h }}:00 изменился.
-                          Было: {{ saved_temp }}°C, {{ saved_condition }}
-                          Стало: {{ current_temp }}°C, {{ current_cond_ru }}
-                    - service: input_number.set_value
-                      target:
-                        entity_id: 'input_number.forecast_temp_{{ "%02d" | format(h) }}'
-                      data:
-                        value: "{{ current_temp }}"
-                    - service: input_text.set_value
-                      target:
-                        entity_id: 'input_text.forecast_condition_{{ "%02d" | format(h) }}'
-                      data:
-                        value: "{{ current_cond_ru }}"
+
+      # --- ШАГ 2: Анализируем прогноз, ищем отличия от сохраненного и готовим данные ---
+      - variables:
+          change_data: >
+            {% set data = namespace(lines=[], temp_updates={}, cond_updates={}) %}
+            {% set translations = {
+              'clear': 'Ясно', 'sunny': 'Солнечно', 'cloudy': 'Облачно',
+              'overcast': 'Пасмурно', 'partly-cloudy': 'Переменная облачность',
+              'rain': 'Дождь', 'light-rain': 'Небольшой дождь', 'heavy-rain': 'Сильный дождь',
+              'showers': 'Ливень', 'wet-snow': 'Мокрый снег', 'light-snow': 'Небольшой снег',
+              'snow': 'Снег', 'snow-showers': 'Снегопад', 'hail': 'Град',
+              'thunderstorm': 'Гроза', 'thunderstorm-with-rain': 'Дождь с грозой',
+              'thunderstorm-with-hail': 'Гроза с градом', 'partlycloudy': 'Переменная облачность'
+            } %}
+            {% for hour in hourly_forecast.get('weather.yandexweather', {}).get('forecast', []) %}
+              {% set h = (hour.datetime | as_datetime | as_local).hour %}
+              {# Проверяем только нужные часы И только те, что еще не наступили #}
+              {% if h in [9, 13, 17, 21, 23] and h > now().hour %}
+                {% set saved_temp = states('input_number.forecast_temp_' ~ '%02d' | format(h)) | float(0) %}
+                {% set saved_condition = states('input_text.forecast_condition_' ~ '%02d' | format(h)) %}
+                {% set current_temp = hour.temperature %}
+                {% set condition_from_api = hour.condition %}
+                {% set current_cond_ru = translations.get(condition_from_api | lower, condition_from_api | capitalize) if condition_from_api else "Неизвестно" %}
+
+                {# Условие изменения: температура отличается на 3+ градуса ИЛИ изменилось состояние погоды #}
+                {% if (current_temp - saved_temp) | abs >= 3 or current_cond_ru != saved_condition %}
+                  {% set line = "• На " ~ h ~ ":00 было " ~ saved_temp ~ "°C (" ~ saved_condition ~ "), стало " ~ current_temp ~ "°C (" ~ current_cond_ru ~ ")." %}
+                  {% set _ = data.lines.append(line) %}
+
+                  {# Готовим данные для обновления помощников #}
+                  {% set t_updates = data.temp_updates %}
+                  {% set _ = t_updates.update({h: current_temp}) %}
+                  {% set c_updates = data.cond_updates %}
+                  {% set _ = c_updates.update({h: current_cond_ru}) %}
+                {% endif %}
+              {% endif %}
+            {% endfor %}
+            {{ {'lines': data.lines, 'temps': data.temp_updates, 'conds': data.cond_updates} }}
+
+      # --- ШАГ 3: Если были найдены изменения, отправляем одно уведомление и обновляем помощников ---
+      - if:
+          - condition: template
+            value_template: "{{ change_data.lines | length > 0 }}"
+        then:
+          # 3a. Отправляем одно сводное уведомление
+          - service: notify.telegram
+            data:
+              title: "⚠️ Изменение прогноза погоды!"
+              message: |
+                {% for line in change_data.lines %}
+                {{ line }}
+                {% endfor %}
+
+          # 3b. Обновляем помощников с температурой
+          - repeat:
+              for_each: "{{ change_data.temps.items() }}"
+              sequence:
+                - service: input_number.set_value
+                  target:
+                    entity_id: "input_number.forecast_temp_{{ '%02d' | format(repeat.item.key) }}"
+                  data:
+                    value: "{{ repeat.item.value }}"
+
+          # 3c. Обновляем помощников с состоянием погоды
+          - repeat:
+              for_each: "{{ change_data.conds.items() }}"
+              sequence:
+                - service: input_text.set_value
+                  target:
+                    entity_id: "input_text.forecast_condition_{{ '%02d' | format(repeat.item.key) }}"
+                  data:
+                    value: "{{ repeat.item.value }}"
     mode: single
