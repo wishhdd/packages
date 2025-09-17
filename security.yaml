@@ -35,6 +35,7 @@ automation: #Автоматизации
 
   ####
   - alias: "toggleMotionSensor" # Оповещение о движении
+    id: 250917838
     condition:
       - condition: state
         entity_id: binary_sensor.semia_doma
@@ -53,7 +54,9 @@ automation: #Автоматизации
       - service: notify.telegram
         data:
           title: "🚨 Охрана: Движение!"
-          message: "Обнаружено движение {{ trigger.to_state.attributes.friendly_name | default(trigger.to_state.name) | replace(' Занятость', '')) }}."
+          message: >-
+            Обнаружено движение {{ trigger.to_state.attributes.friendly_name | default(trigger.to_state.name) | replace(' Занятость', '')) }}.
+    mode: single
 
   ###
   - alias: "turnOffLight" #выключаем свет на ночь
