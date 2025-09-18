@@ -63,7 +63,7 @@ template:
       ###########
       - name: "День"
         device_class: "light"
-        state: "{{ ((now().hour|float(0)+((now().minute|float(0))/60)|float(0))|float(0) > 7.5) and ((now().hour|float(0)+((now().minute|float(0))/60)|float(0))|float(0) < 21.1)}}"
+        state: "{{ '07:10' < now().strftime('%H:%M') < '21:30' }}"
 
       ###########
       - name: "Подсветка раб места"
