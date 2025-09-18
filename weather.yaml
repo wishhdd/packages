@@ -52,11 +52,13 @@ input_text:
     name: Прогноз состояния на 23
     max: 255
     icon: mdi:weather-cloudy
+
 #########
 automation: #Автоматизации
   #########
-  - alias: "Погода: Утренний отчет и Сохранение прогноза"
-    id: 2509171722
+  ###
+  - id: "2509171722"
+    alias: "morning_weather_report"
     description: "В 7:00 получает прогноз, шлет отчет в Telegram и сохраняет данные"
     trigger:
       - platform: time
@@ -156,8 +158,8 @@ automation: #Автоматизации
     mode: single
 
   ###
-  - alias: "Погода: Проверка изменений (Улучшенная)"
-    id: 2509171724
+  - id: "2509171724"
+    alias: "checking_weather_changes"
     description: "Раз в несколько часов проверяет прогноз для будущих временных слотов и присылает одно сводное уведомление при отличиях."
     trigger:
       - platform: time
