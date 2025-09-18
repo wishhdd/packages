@@ -380,7 +380,7 @@ automation: #Автоматизации
     id: "2410281040"
     trigger:
       - platform: time_pattern
-        minutes: "/15"
+        minutes: "/30"
     action:
       - choose:
           - conditions:
