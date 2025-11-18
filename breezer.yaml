@@ -24,7 +24,7 @@ input_number:
   minimum_value_for_breezer:
     name: Минимальное значение для бризера
     icon: mdi:molecule-co2
-    initial: 600
+    initial: 650
     min: 450
     max: 1800
     step: 50
@@ -32,7 +32,7 @@ input_number:
   delta_value_for_breezer:
     name: Дельта значение для бризера
     icon: mdi:molecule-co2
-    initial: 125
+    initial: 50
     min: 25
     max: 300
     step: 25
@@ -100,27 +100,43 @@ template:
         unit_of_measurement: "%"
         icon: "mdi:fan-speed-3"
         state: >
+          {# --- ЛОГИКА ДЛЯ ВАННОЙ --- #}
+          {% set step_pct = state_attr('fan.royal_clima_rcb_150', 'percentage_step')|float(16.6) %}
+          {% set speed_1_pct = (1 * step_pct)|round(0) %}
+          {% set speed_3_pct = (3 * step_pct)|round(0) %}
+          {% set bathroom_speed = 0 %}
+          {% if is_state('switch.bathroomfan2_l1', 'on') %}
+            {% set bathroom_speed = speed_3_pct %}
+          {% else %}
+            {% set bathroom_speed = speed_1_pct %}
+          {% endif %}
+
+          {# --- ЛОГИКА CO2 --- #}
           {% set speed_max = states("sensor.maksimalnaia_skorost_brizera")|float(0) %}
-          {% set speed = 0 %}
+          {% set co2_speed = 0 %}
           {% if is_state("input_select.breezer_algorithm", "linear") %}
-          {% set speed = states("sensor.sensor.tselevaia_skorost_brizera")|int(0) %}
+          {% set co2_speed = states("sensor.tselevaia_skorost_brizera")|int(0) %}
           {% endif %}
           {% if is_state("input_select.breezer_algorithm", "targeted_1") %}
-          {% set speed = states("sensor.tselevaia_skorost_brizera_algoritm_tselevogo_znacheniia")|int(0) %}
+          {% set co2_speed = states("sensor.tselevaia_skorost_brizera_algoritm_tselevogo_znacheniia")|int(0) %}
           {% endif %}
           {% if is_state("input_select.breezer_algorithm", "targeted_2") %}
-          {% set speed = states("sensor.tselevaia_skorost_brizera_algoritm_2")|int(0) %}
+          {% set co2_speed = states("sensor.tselevaia_skorost_brizera_algoritm_2")|int(0) %}
           {% endif %}
-          {% if speed < 0 %}
-          {% set speed = 0 %}
+          {% if co2_speed < 0 %}
+          {% set co2_speed = 0 %}
           {% endif %}
-          {% if speed > speed_max %}
-          {% set speed = speed_max %}
+          {% if co2_speed > speed_max %}
+          {% set co2_speed = speed_max %}
           {% endif %}
+
+          {# --- ФИНАЛЬНЫЙ РАСЧЕТ --- #}
+          {% set speed = [co2_speed, bathroom_speed]|max %}
           {% if is_state("binary_sensor.semia_doma", "off") %}
           {% set speed = 0 %}
           {% endif %}
           {{speed|round(0)}}
+
       ###########
       - name: "Максимальная скорость бризера"
         unit_of_measurement: "%"
@@ -152,6 +168,15 @@ template:
             {% set speed_step = speed/step %}
             {{speed_step|round(0)}}
 
+      #Сенсор, который берет МАКСИМАЛЬНЫЙ CO2
+      - name: "Максимальный CO2 в квартире"
+        unit_of_measurement: "ppm"
+        device_class: "carbon_dioxide"
+        icon: "mdi:molecule-co2"
+        state: >
+          {% set bedroom_co2 = states("sensor.0x00124b002a61a064_co2")|int(0) %}
+          {% set hall_co2 = states("sensor.hall_co2_co2")|int(0) %}
+          {{ [bedroom_co2, hall_co2]|max }}
       ###########
       - name: "Целевая скорость бризера"
         unit_of_measurement: "%"
@@ -161,7 +186,8 @@ template:
           {% set co2_delta_number = states("input_number.delta_value_for_breezer")|int(0) %}
           {% set co2_target = co2_minimum - co2_delta_number %}
           {% set hysteresis = states("input_number.maximum_value_for_breezer")|int(0) - co2_target %}
-          {% set co2 = states("sensor.0x00124b002a61a064_co2")|int(0) %}
+          {# ---!!!- ИЗМЕНЕНИЕ ЗДЕСЬ -!!! --- #}
+          {% set co2 = states("sensor.maksimalnyi_co2_v_kvartire")|int(0) %}
           {% set speed_min = state_attr('fan.royal_clima_rcb_150', 'percentage_step')|float(0) %}
           {% set speed_current  = speed_min %}
           {% set speed_max = states("sensor.maksimalnaia_skorost_brizera")|float(0) %}
@@ -186,7 +212,8 @@ template:
         icon: "mdi:fan-auto"
         state: >
           {% set last_value = states("sensor.poslednee_znachenie_uglikislogo_gaza_v_spalne")|int(0) %}
-          {% set current_value = states("sensor.0x00124b002a61a064_co2")|int(0) %}
+          {# ---!!!- ИЗМЕНЕНИЕ ЗДЕСЬ -!!! --- #}
+          {% set current_value = states("sensor.maksimalnyi_co2_v_kvartire")|int(0) %}
           {% set target_value = states("input_number.minimum_value_for_breezer")|int(0) %}
           {% set delta = states("input_number.delta_value_for_breezer")|int(0) %}
           {% set current_speed = states("sensor.skorost_brizera")|float(0) %}
@@ -221,7 +248,8 @@ template:
         unit_of_measurement: "%"
         icon: "mdi:fan-auto"
         state: >
-          {% set current_CO2 = states("sensor.0x00124b002a61a064_co2")|int(0) %}
+          {# ---!!!- ИЗМЕНЕНИЕ ЗДЕСЬ -!!! --- #}
+          {% set current_CO2 = states("sensor.maksimalnyi_co2_v_kvartire")|int(0) %}
           {% set target_CO2 = states("input_number.minimum_value_for_breezer")|int(0) %}
           {% set delta = states("input_number.delta_value_for_breezer")|int(0) %}
           {% set current_speed = states("sensor.skorost_brizera")|float(0) %}
@@ -312,7 +340,7 @@ automation: #Автоматизации
   #       data:
   #         topic: "climate/sensors/carbon_dioxide/last_value/bedroom"
   #         payload: >
-  #           {{states("sensor.0x00124b002a61a064_co2")|int(0)}}
+  #           {{states("sensor.0x00124b002a61a064_co2")|int(0)}} # <- СТАРАЯ ВЕРСИЯ
 
   ####
   - alias: settingFanSpeedInBreezer # Установка оборотов вентилятора
@@ -379,8 +407,14 @@ automation: #Автоматизации
   - alias: "Breezer_Control"
     id: "2410281040"
     trigger:
+      # Триггер по времени (для CO2 и плановых проверок)
       - platform: time_pattern
         minutes: "/30"
+
+      # Триггер по потребности (для ванной и CO2)
+      - platform: state
+        entity_id: binary_sensor.nado_obnovliat_skorost_brizera
+        to: "on"
     action:
       - choose:
           - conditions:
@@ -431,4 +465,5 @@ automation: #Автоматизации
         data:
           topic: "climate/sensors/carbon_dioxide/last_value/bedroom"
           payload: >
-            {{ states('sensor.0x00124b002a61a064_co2')|int(0) }}
+            {# ---!!!- ИЗМЕНЕНИЕ ЗДЕСЬ -!!! --- #}
+            {{ states('sensor.maksimalnyi_co2_v_kvartire')|int(0) }}
