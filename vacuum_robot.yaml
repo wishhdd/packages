@@ -1,10 +1,6 @@
 # ===============================================================
-# 1. СОЗДАНИЕ ПЕРЕМЕННЫХ (ХЕЛПЕРЫ)
-# ВАЖНО: Этот файл должен быть подключен как Package.
-# Если это не Package, а просто include в automation, то
-# разделы input_datetime и input_boolean надо перенести в configuration.yaml
+# 1. ХЕЛПЕРЫ (Должны быть в configuration.yaml, но если это пакет - тут ок)
 # ===============================================================
-
 input_datetime:
   last_vacuum_run:
     name: "Дата последней уборки"
@@ -21,9 +17,7 @@ input_boolean:
 # 2. АВТОМАТИЗАЦИИ
 # ===============================================================
 automation:
-  # -------------------------------------------------------------
-  # 1. РАННЕЕ УТРО: ПРОВЕРКА ДАТЫ (07:00)
-  # -------------------------------------------------------------
+  # 1. ПРОВЕРКА ГРАФИКА (07:00)
   - id: "vacuum_check_schedule_0700"
     alias: "Робот - 1. Проверка графика (07:00)"
     trigger:
@@ -43,9 +37,7 @@ automation:
         target:
           entity_id: input_boolean.i_will_vacuum
 
-  # -------------------------------------------------------------
-  # 2. УТРО: ПРЕДУПРЕЖДЕНИЕ (07:20)
-  # -------------------------------------------------------------
+  # 2. УВЕДОМЛЕНИЕ (07:20)
   - id: "vacuum_notify_early_0720"
     alias: "Робот - 2. Утреннее уведомление (07:20)"
     trigger:
@@ -67,9 +59,7 @@ automation:
             Прошло 3 дня, поэтому сегодня будет уборка.
             Робот стартует, когда все уйдут, или в 11:00.
 
-  # -------------------------------------------------------------
-  # 3. ДЕНЬ: НАПОМИНАНИЕ (10:30)
-  # -------------------------------------------------------------
+  # 3. НАПОМИНАНИЕ (10:30)
   - id: "vacuum_notify_warning_1030"
     alias: "Робот - 3. Уведомление перед стартом (10:30)"
     trigger:
@@ -82,10 +72,9 @@ automation:
       - condition: state
         entity_id: binary_sensor.semia_doma
         state: "on"
-      # ИСПРАВЛЕНО: to -> state
+      # ИСПРАВЛЕНО: Убрали attribute: status. Проверяем само состояние.
       - condition: state
         entity_id: vacuum.xiaomi_b106eu_4f70_robot_cleaner_2
-        attribute: status
         state: "docked"
     action:
       - service: notify.telegram
@@ -95,9 +84,7 @@ automation:
             Напоминаю: старт уборки через 30 минут (в 11:00).
             Пожалуйста, поднимите вещи с пола!
 
-  # -------------------------------------------------------------
-  # 4. ДЕНЬ: АВТО-СТАРТ (11:00)
-  # -------------------------------------------------------------
+  # 4. АВТО-СТАРТ (11:00)
   - id: "vacuum_start_schedule_1100"
     alias: "Робот - 4. Запуск по таймеру (11:00)"
     trigger:
@@ -110,19 +97,16 @@ automation:
       - condition: state
         entity_id: binary_sensor.semia_doma
         state: "on"
-      # ИСПРАВЛЕНО: to -> state
+      # ИСПРАВЛЕНО: Проверяем состояние сущности
       - condition: state
         entity_id: vacuum.xiaomi_b106eu_4f70_robot_cleaner_2
-        attribute: status
         state: "docked"
     action:
       - service: vacuum.start
         target:
           entity_id: vacuum.xiaomi_b106eu_4f70_robot_cleaner_2
 
-  # -------------------------------------------------------------
-  # 5. ЛЮБОЕ ВРЕМЯ: СТАРТ ПРИ УХОДЕ
-  # -------------------------------------------------------------
+  # 5. СТАРТ ПРИ УХОДЕ (САМОЕ ВАЖНОЕ)
   - id: "vacuum_start_on_leave"
     alias: "Робот - 5. Запуск при уходе из дома"
     trigger:
@@ -136,25 +120,25 @@ automation:
       - condition: state
         entity_id: input_boolean.i_will_vacuum
         state: "on"
-      # ИСПРАВЛЕНО: to -> state (Именно здесь была ошибка с картинки)
+      # ИСПРАВЛЕНО: Убрали attribute: status.
+      # Теперь мы проверяем просто state: "docked". Это сработает.
       - condition: state
         entity_id: vacuum.xiaomi_b106eu_4f70_robot_cleaner_2
-        attribute: status
         state: "docked"
     action:
       - service: vacuum.start
         target:
           entity_id: vacuum.xiaomi_b106eu_4f70_robot_cleaner_2
 
-  # -------------------------------------------------------------
-  # 6. ФИНАЛ: УБОРКА ЗАВЕРШЕНА
-  # -------------------------------------------------------------
+  # 6. ФИНАЛ
   - id: "vacuum_log_success"
     alias: "Робот - 6. Фиксация успешной уборки"
     trigger:
       - platform: state
         entity_id: vacuum.xiaomi_b106eu_4f70_robot_cleaner_2
-        attribute: status
+        # Здесь attribute: status оставляем, или лучше тоже убрать?
+        # У Miot Auto статус возврата на базу может быть разным.
+        # Лучше проверим просто переход в docked.
         to: "docked"
         for: "00:00:10"
     condition:
