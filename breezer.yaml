@@ -102,13 +102,11 @@ template:
         state: >
           {# --- ЛОГИКА ДЛЯ ВАННОЙ --- #}
           {% set step_pct = state_attr('fan.royal_clima_rcb_150', 'percentage_step')|float(16.6) %}
-          {% set speed_1_pct = (1 * step_pct)|round(0) %}
-          {% set speed_3_pct = (3 * step_pct)|round(0) %}
           {% set bathroom_speed = 0 %}
           {% if is_state('switch.bathroomfan2_l1', 'on') %}
-            {% set bathroom_speed = speed_3_pct %}
+            {% set bathroom_speed = (3 * step_pct)|round(0) %}
           {% else %}
-            {% set bathroom_speed = speed_1_pct %}
+            {% set bathroom_speed = 0 %}
           {% endif %}
 
           {# --- ЛОГИКА CO2 --- #}
