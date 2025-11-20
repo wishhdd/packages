@@ -118,7 +118,7 @@ template:
         device_class: temperature
         unit_of_measurement: °C
         state: >
-          {{ ((states('sensor.bedroom_sensor02_temperature') | float(18) + states('sensor.0x00124b002a61a064_temperature_1') | float(18)) / 2) | round(2)}}
+          {{ ((states('sensor.bedroom_sensor02_temperature') | float(30) + states('sensor.0x00124b002a61a064_temperature_1') | float(30)) / 2) | round(2)}}
         attributes:
           у_тумбочки: "{{ states('sensor.bedroom_sensor02_temperature') }}"
           на_комоде: "{{ states('sensor.0x00124b002a61a064_temperature_1') }}"

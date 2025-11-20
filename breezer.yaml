@@ -271,7 +271,7 @@ template:
         unit_of_measurement: "°C"
         icon: "mdi:thermometer-auto"
         state: >
-          {% set temperatura_v_spalne = states("sensor.temperatura_v_spalne")|float(0) %}
+          {% set temperatura_v_spalne = states("sensor.temperatura_v_spalne")|float(30) %}
           {% set breezer_temperatura_min = state_attr('climate.royal_clima_rcb_150_obogrevatel', 'min_temp')|int(0) %}
           {% set breezer_temperatura_max = state_attr('climate.royal_clima_rcb_150_obogrevatel', 'max_temp')|int(0) %}
           {% set temperature_at_which_heating_is_turned_on_in_breezer = states("input_number.temperature_at_which_heating_is_turned_on_in_breezer")|float(0) %}
@@ -411,8 +411,8 @@ automation: #Автоматизации
 
       # Триггер по потребности (для ванной и CO2)
       - platform: state
-        entity_id: binary_sensor.nado_obnovliat_skorost_brizera
-        to: "on"
+        entity_id: switch.bathroomfan2_l1
+        to: null
     action:
       - choose:
           - conditions:
