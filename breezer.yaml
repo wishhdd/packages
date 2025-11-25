@@ -411,7 +411,10 @@ automation: #Автоматизации
 
       # Триггер по потребности (для ванной и CO2)
       - platform: state
-        entity_id: switch.bathroomfan2_l1
+        entity_id:
+          - switch.bathroomfan2_l1 # Вентиляция в ванной
+          - binary_sensor.semia_doma # Присутствие людей
+          - binary_sensor.den # Смена День/Ночь
         to: null
     action:
       - choose:
@@ -463,5 +466,4 @@ automation: #Автоматизации
         data:
           topic: "climate/sensors/carbon_dioxide/last_value/bedroom"
           payload: >
-            {# ---!!!- ИЗМЕНЕНИЕ ЗДЕСЬ -!!! --- #}
             {{ states('sensor.maksimalnyi_co2_v_kvartire')|int(0) }}

@@ -1,14 +1,8 @@
-###########
-timer:
-  ###########
-  small_light:
-    duration: "00:20:00"
-###########
 automation: #Автоматизации
   ##############
 
   ####
-  - alias: "btnClick" # при клике на кнопку переключает настольную лампу
+  - alias: "btnClick (hall_btn01)" # при клике на кнопку переключает настольную лампу
     trigger:
       - platform: mqtt
         topic: zigbee2mqtt/hall_btn01
@@ -20,107 +14,110 @@ automation: #Автоматизации
         target:
           entity_id: switch.hall_socketx4_01_l5
 
-  ###
-  - alias: startSmallLigthTimer #  Запускаем таймер ночника
+  ####
+  - alias: "Ночник (hall_socketx4_01_l5) - автовыключение через 20 мин"
     trigger:
       - platform: state
-        entity_id:
-          - switch.hall_socketx4_01_l5
+        entity_id: switch.hall_socketx4_01_l5
+    mode: restart
+    action:
+      - if:
+          - condition: state
+            entity_id: switch.hall_socketx4_01_l5
+            state: "on"
+        then:
+          - delay: "00:20:00"
+          - service: switch.turn_off
+            target:
+              entity_id: switch.hall_socketx4_01_l5
+
+  ####
+  - alias: "Климат в зале - Управление при открытии/закрытии окна"
+    trigger:
+      - platform: state
+        entity_id: binary_sensor.hall_sensor05_contact
         to: "on"
+        for:
+          minutes: 1
+        id: "window_open"
+      - platform: state
+        entity_id: binary_sensor.hall_sensor05_contact
+        to: "off"
+        for:
+          minutes: 1
+        id: "window_closed"
     action:
-      - service: timer.start
-        target:
-          entity_id: timer.small_light
+      - choose:
+          - conditions: "{{ trigger.id == 'window_open' }}"
+            sequence:
+              - service: climate.set_hvac_mode
+                target:
+                  entity_id: climate.gostinaia
+                data:
+                  hvac_mode: "off"
+          - conditions: "{{ trigger.id == 'window_closed' }}"
+            sequence:
+              - service: climate.set_hvac_mode
+                target:
+                  entity_id: climate.gostinaia
+                data:
+                  hvac_mode: "heat"
 
-  ###
-  - alias: stopSmallLigthTimer #  Останавливаем таймер ночника
+  ####
+  - alias: "turnoff_battery_light_when_central_light_turnedon" # выкачаем свет батареи и ночник когда включён основной свет
+    trigger:
+      platform: state
+      entity_id:
+        - switch.hall_switch01_left # центральный свет (левый)
+        - switch.hall_switch01_center # центральный свет (центр)
+      to: "on"
+    action:
+      - service: switch.turn_off
+        target:
+          entity_id:
+            - switch.hall_socketx4_01_l2
+            - switch.hall_socketx4_01_l5
+
+  ####
+  # ОБНОВЛЕНО: Теперь эта автоматизация делает две вещи:
+  # 1. Выключает основной свет.
+  # 2. Выключает "соседний" фоновый свет (взаимное исключение).
+  - alias: "Режим фонового света (Взаимное исключение)"
     trigger:
       - platform: state
-        entity_id:
-          - switch.hall_socketx4_01_l5
-        to: "off"
+        entity_id: switch.hall_socketx4_01_l2 # Свет батареи
+        to: "on"
+        id: "battery_light"
+      - platform: state
+        entity_id: switch.hall_socketx4_01_l5 # Ночник
+        to: "on"
+        id: "night_light"
     action:
-      - service: timer.cancel
-        target:
-          entity_id: timer.small_light
-
-  ###
-  - alias: endSmallLigthTimer #  таймер ночника подошел к концу
-    trigger:
-      - platform: event
-        event_type: timer.finished
-        event_data:
-          entity_id: timer.small_light
-    action:
+      # 1. Всегда выключаем основной свет, так как перешли в "уютный режим"
       - service: switch.turn_off
         target:
-          entity_id: switch.hall_socketx4_01_l5
-
-  ####
-  - alias: " turnoff_heating_hall_if_window_open" # Выклчаем отопление если окно открыто
-    trigger:
-      platform: state
-      entity_id: binary_sensor.hall_sensor05_contact
-      to: "on"
-      for:
-        minutes: 1
-    action:
-      - service: climate.set_hvac_mode
-        target:
           entity_id:
-            - climate.gostinaia # Батарея в зале
-        data:
-          hvac_mode: "off"
+            - switch.hall_switch01_left
+            - switch.hall_switch01_center
+
+      # 2. Взаимное исключение: выключаем тот фоновый свет, который НЕ был триггером
+      - choose:
+          # Если включили Батарею -> Выключаем Ночник
+          - conditions: "{{ trigger.id == 'battery_light' }}"
+            sequence:
+              - service: switch.turn_off
+                target:
+                  entity_id: switch.hall_socketx4_01_l5
+
+          # Если включили Ночник -> Выключаем Батарею
+          - conditions: "{{ trigger.id == 'night_light' }}"
+            sequence:
+              - service: switch.turn_off
+                target:
+                  entity_id: switch.hall_socketx4_01_l2
 
   ####
-  - alias: " turnon_heating_hall_if_window_close" # Вклчаем отопление если окно закрыто
-    trigger:
-      platform: state
-      entity_id: binary_sensor.hall_sensor05_contact
-      to: "off"
-      for:
-        minutes: 1
-    action:
-      - service: climate.set_hvac_mode
-        target:
-          entity_id:
-            - climate.gostinaia # Батарея в зале
-        data:
-          hvac_mode: "heat"
-
-  ####
-  - alias: "turnoff_battery_light_when_central_light_turnedon" # выклчаем свет батареи когда включе оснвной свет
-    trigger:
-      platform: state
-      entity_id: switch.0x847127fffe9f5082_left #цетральный свет
-      to: "on"
-    action:
-      - service: switch.turn_off
-        target:
-          entity_id: switch.hall_socketx4_01_l2
-
-  ####
-  - alias: "turnOnBatteryLightWhenTurningOffTV" #включаем свет батареи при выклчюении телевизора
-    trigger:
-      platform: state
-      entity_id: sensor.televizor_v_zale #Телевизор в зале
-      to: "standby"
-    condition:
-      condition: and
-      conditions:
-        - condition: state
-          entity_id: sun.sun
-          state: "below_horizon"
-        - condition: state
-          entity_id: switch.0x847127fffe9f5082_left #свет зал центральный
-          state: "off"
-    action:
-      - service: switch.turn_on
-        target:
-          entity_id: switch.hall_socketx4_01_l2 #свет в батареи
-
-  ####
-  - alias: "switchRadiatorLight" #Переключаем подстветку батареии при нажатии правой кнопки выключателя
+  - alias: "switchRadiatorLight" #Переключаем подсветку батареи при нажатии правой кнопки выключателя
     trigger:
       platform: state
       entity_id: switch.hall_switch01_right
@@ -136,102 +133,46 @@ automation: #Автоматизации
           entity_id: switch.hall_switch01_right
 
   ####
-  - alias: "Switch the left ceiling light" #Переключить левый потолочный свет
+  - alias: "Беспроводная кнопка в зале"
     trigger:
       - platform: mqtt
         topic: zigbee2mqtt/hall_btn02
-    condition:
-      - condition: template
-        value_template: "{{ trigger.payload_json.action == '1_single' }}"
     action:
-      - service: switch.toggle
-        target:
-          entity_id:
-            - switch.hall_switch01_left
+      - choose:
+          # Кнопка 1
+          - conditions: "{{ trigger.payload_json.action == '1_single' }}"
+            sequence:
+              - service: switch.toggle
+                target:
+                  entity_id: switch.hall_switch01_left
+          # Кнопка 2
+          - conditions: "{{ trigger.payload_json.action == '2_single' }}"
+            sequence:
+              - service: switch.toggle
+                target:
+                  entity_id: switch.hall_switch01_center
+          # Кнопка 3
+          - conditions: "{{ trigger.payload_json.action == '3_single' }}"
+            sequence:
+              - service: switch.toggle
+                target:
+                  entity_id: switch.hall_socketx4_01_l5
+          # Кнопка 4
+          - conditions: "{{ trigger.payload_json.action == '4_single' }}"
+            sequence:
+              - service: switch.toggle
+                target:
+                  entity_id: switch.hall_socketx4_01_l2
 
   ####
-  - alias: "Switch the center ceiling light" #Переключить центральный потолочный свет
-    trigger:
-      - platform: mqtt
-        topic: zigbee2mqtt/hall_btn02
-    condition:
-      - condition: template
-        value_template: "{{ trigger.payload_json.action == '2_single' }}"
-    action:
-      - service: switch.toggle
-        target:
-          entity_id:
-            - switch.hall_switch01_center
-
-  ####
-  - alias: "Switch btnClick" #Переключить ночной свет
-    trigger:
-      - platform: mqtt
-        topic: zigbee2mqtt/hall_btn02
-    condition:
-      - condition: template
-        value_template: "{{ trigger.payload_json.action == '3_single' }}"
-    action:
-      - service: switch.toggle
-        target:
-          entity_id:
-            - switch.hall_socketx4_01_l5
-
-  ####
-  - alias: "Switch the switchRadiatorLight" #Переключить свет в батареи
-    trigger:
-      - platform: mqtt
-        topic: zigbee2mqtt/hall_btn02
-    condition:
-      - condition: template
-        value_template: "{{ trigger.payload_json.action == '4_single' }}"
-    action:
-      - service: switch.toggle
-        target:
-          entity_id:
-            - switch.hall_socketx4_01_l2
-
-  # - alias: "closeBlackout" #Закрыть блэкаут
-  #   trigger:
-  #     platform: state
-  #     entity_id: sun.sun
-  #     to: "below_horizon"
-  #   action:
-  #     - service: cover.close_cover
-  #       target:
-  #         entity_id: cover.0x842712fffeba18f7
-
-  # - alias: "openBlackout" #Открыть блэкаут
-  #   trigger:
-  #     platform: time
-  #     at: "07:15:00"
-  #   action:
-  #     - service: cover.open_cover
-  #       target:
-  #         entity_id: cover.0x842712fffeba18f7
-
-  - alias: "closeCurtainsWhenLightIsTurnedOn" #закрыть шторы при включение света
+  - alias: "Управление шторами при включении света в зале"
     trigger:
       - platform: state
         entity_id:
           - switch.hall_switch01_left
           - switch.hall_switch01_center
         to: "on"
-    condition: "{{is_state('sun.sun', 'below_horizon')}}"
     action:
-      - service: cover.close_cover
-        target:
-          entity_id: cover.0x842712fffeba18f7
-
-  - alias: "openCurtainsWhenLightIsTurnedOn" #открываем шторы при включение света
-    trigger:
-      platform: state
-      entity_id:
-        - switch.hall_switch01_left
-        - switch.hall_switch01_center
-      to: "on"
-    condition: "{{is_state('sun.sun', 'above_horizon')}}"
-    action:
-      - service: cover.open_cover
+      - service: "cover.{{ 'close_cover' if is_state('sun.sun', 'below_horizon') else 'open_cover' }}"
         target:
           entity_id: cover.0x842712fffeba18f7
