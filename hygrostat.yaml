@@ -53,7 +53,6 @@ automation:
           - binary_sensor.semia_doma
           - binary_sensor.open_windows
           - binary_sensor.den
-        to: null
     action:
       - choose:
           - conditions:

@@ -79,7 +79,7 @@ input_boolean:
     icon: mdi:cog-outline
 
   breezer_type_of_algorithm:
-    name: Целевой алгортм
+    name: Целевой алгоритм
     icon: mdi:progress-star
 
   breezer_day_heating:
@@ -87,7 +87,7 @@ input_boolean:
     icon: mdi:heating-coil
 
   breezer_automation_heating_on:
-    name: Включить автоматизацию подборва обогрева
+    name: Включить автоматизацию подогрева обогрева
     icon: mdi:heating-coil
 
 #########
@@ -361,67 +361,6 @@ automation: #Автоматизации
   #         topic: "climate/sensors/carbon_dioxide/last_value/bedroom"
   #         payload: >
   #           {{states("sensor.0x00124b002a61a064_co2")|int(0)}} # <- СТАРАЯ ВЕРСИЯ
-
-  ####
-  - alias: settingFanSpeedInBreezer # Установка оборотов вентилятора
-    id: "2410012329"
-    # condition:
-    #   condition: state
-    #   entity_id: binary_sensor.nado_obnovliat_skorost_brizera
-    #   state: "on"
-    trigger:
-      # - platform: time_pattern
-      #   minutes: "/15"
-    action:
-      - choose:
-          - conditions: "{{states('sensor.finalnaia_skorost_brizera')|int(0) == 0 and is_state('binary_sensor.nado_obnovliat_skorost_brizera', 'on') }}"
-            sequence:
-              - service: fan.turn_off
-                target:
-                  entity_id: fan.royal_clima_rcb_150
-
-      - choose:
-          - conditions: "{{states('sensor.finalnaia_skorost_brizera')|int(0) != 0 and is_state('binary_sensor.nado_obnovliat_skorost_brizera', 'on') }}"
-            sequence:
-              - service: fan.turn_on
-                target:
-                  entity_id: fan.royal_clima_rcb_150
-                data:
-                  percentage: "{{states('sensor.finalnaia_skorost_brizera')|int(0)}}"
-
-  ####
-  - alias: settingHeatTemperatureInBreezer # Установка температуры подогрева
-    id: "2410021425"
-    condition:
-      # condition: state
-      # entity_id: binary_sensor.nado_obnovliat_obogrevatel_brizera
-      # state: "on"
-    trigger:
-      # - platform: time_pattern
-      #   minutes: "/15"
-    action:
-      - choose:
-          - conditions: "{{ states('sensor.tselevaia_temperatura_brizera')|int(0) == 0 and is_state('climate.royal_clima_rcb_150_obogrevatel', 'heat') }}"
-            sequence:
-              - service: climate.set_hvac_mode
-                target:
-                  entity_id: climate.royal_clima_rcb_150_obogrevatel
-                data:
-                  hvac_mode: "off"
-      - choose:
-          - conditions: "{{states('sensor.tselevaia_temperatura_brizera')|int(0) != 0}}"
-            sequence:
-              - service: climate.set_hvac_mode
-                target:
-                  entity_id: climate.royal_clima_rcb_150_obogrevatel
-                data:
-                  hvac_mode: heat
-              - service: climate.set_temperature
-                target:
-                  entity_id: climate.royal_clima_rcb_150_obogrevatel
-                data:
-                  temperature: "{{states('sensor.tselevaia_temperatura_brizera')|int(0)}}"
-                  hvac_mode: heat
 
   ####
   - alias: "Breezer_Control"

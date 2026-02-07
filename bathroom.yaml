@@ -50,7 +50,7 @@ template:
           Свет вспомогательный: "{{states('switch.0xa4c138beea7732ba_center')}}"
           День: "{{states('binary_sensor.den')}}"
           Пороговая_влажность: "{{states('sensor.porogovaia_vlazhnost')|int(0)}}"
-          Влажность_в_ввнной: "{{states('sensor.bathroom_sensor01_humidity')|int(0)}}"
+          Влажность_в_ванной: "{{states('sensor.bathroom_sensor01_humidity')|int(0)}}"
 
 #########
 timer:

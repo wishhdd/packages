@@ -59,12 +59,12 @@ automation: #Автоматизации
 
   ###
   - alias: "turnOffLight" #выключаем свет на ночь
-    condition:
-      condition: state
-      entity_id: binary_sensor.semia_doma
-      state: "off"
-      for:
-        minutes: 3
+    conditions:
+      - condition: state
+        entity_id: binary_sensor.semia_doma
+        state: "off"
+        for:
+          minutes: 3
     trigger:
       platform: time
       at: "23:10:00"
