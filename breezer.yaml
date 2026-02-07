@@ -61,14 +61,14 @@ input_number:
   temperature_at_which_heating_is_turned_on_in_breezer:
     name: Температура включения догрева
     icon: mdi:sun-thermometer-outline
-    initial: 22.5
+    initial: 21.5
     min: 15
     max: 25
     step: 0.5
   temperature_at_which_max_heating_is_turned_on_in_breezer:
     name: Температура включения максимального догрева
     icon: mdi:sun-thermometer-outline
-    initial: 20.0
+    initial: 18.0
     min: 15
     max: 25
     step: 0.5
@@ -127,8 +127,6 @@ template:
           {% if co2_speed > speed_max %}
           {% set co2_speed = speed_max %}
           {% endif %}
-
-          {# --- ФИНАЛЬНЫЙ РАСЧЕТ --- #}
           {% set speed = [co2_speed, bathroom_speed]|max %}
           {% if is_state("binary_sensor.semia_doma", "off") %}
           {% set speed = 0 %}
@@ -172,9 +170,9 @@ template:
         device_class: "carbon_dioxide"
         icon: "mdi:molecule-co2"
         state: >
-          {% set bedroom_co2 = states("sensor.0x00124b002a61a064_co2")|int(0) %}
-          {% set hall_co2 = states("sensor.hall_co2_co2")|int(0) %}
-          {{ [bedroom_co2, hall_co2]|max }}
+          {% set bedroom_co2 = states("sensor.0x00124b002a61a064_co2")|float(0) %}
+          {% set hall_co2 = states("sensor.hall_co2_co2")|float(0) %}
+          {{ [bedroom_co2,bedroom_co2, hall_co2]|average|round(0)|int(0) }}
       ###########
       - name: "Целевая скорость бризера"
         unit_of_measurement: "%"
@@ -210,7 +208,6 @@ template:
         icon: "mdi:fan-auto"
         state: >
           {% set last_value = states("sensor.poslednee_znachenie_uglikislogo_gaza_v_spalne")|int(0) %}
-          {# ---!!!- ИЗМЕНЕНИЕ ЗДЕСЬ -!!! --- #}
           {% set current_value = states("sensor.maksimalnyi_co2_v_kvartire")|int(0) %}
           {% set target_value = states("input_number.minimum_value_for_breezer")|int(0) %}
           {% set delta = states("input_number.delta_value_for_breezer")|int(0) %}
@@ -246,7 +243,6 @@ template:
         unit_of_measurement: "%"
         icon: "mdi:fan-auto"
         state: >
-          {# ---!!!- ИЗМЕНЕНИЕ ЗДЕСЬ -!!! --- #}
           {% set current_CO2 = states("sensor.maksimalnyi_co2_v_kvartire")|int(0) %}
           {% set target_CO2 = states("input_number.minimum_value_for_breezer")|int(0) %}
           {% set delta = states("input_number.delta_value_for_breezer")|int(0) %}
@@ -271,28 +267,43 @@ template:
         unit_of_measurement: "°C"
         icon: "mdi:thermometer-auto"
         state: >
-          {% set temperatura_v_spalne = states("sensor.temperatura_v_spalne")|float(30) %}
-          {% set breezer_temperatura_min = state_attr('climate.royal_clima_rcb_150_obogrevatel', 'min_temp')|int(0) %}
-          {% set breezer_temperatura_max = state_attr('climate.royal_clima_rcb_150_obogrevatel', 'max_temp')|int(0) %}
-          {% set temperature_at_which_heating_is_turned_on_in_breezer = states("input_number.temperature_at_which_heating_is_turned_on_in_breezer")|float(0) %}
-          {% set temperature_at_which_max_heating_is_turned_on_in_breezer = states("input_number.temperature_at_which_max_heating_is_turned_on_in_breezer")|float(0) %}
-          {% set temperatura_input_delta = temperature_at_which_heating_is_turned_on_in_breezer - temperature_at_which_max_heating_is_turned_on_in_breezer %}
-          {% set temperatura_room_offcet = temperature_at_which_heating_is_turned_on_in_breezer - temperatura_v_spalne %}
-          {% set temperatura_step = (breezer_temperatura_max - breezer_temperatura_min) / temperatura_input_delta %}
-          {% set target_temperature = breezer_temperatura_min + temperatura_room_offcet * temperatura_step %}
-          {% if target_temperature < breezer_temperatura_min %}
-          {% set target_temperature = breezer_temperatura_min %}
-          {% endif %}
-          {% if target_temperature > breezer_temperatura_max %}
-          {% set target_temperature = breezer_temperatura_max %}
-          {% endif %}
-          {% if temperatura_room_offcet <= 0 %}
-          {% set target_temperature = 0 %}
-          {% endif %}
+          {# 1. ГЛАВНАЯ ПРОВЕРКА: Если ДЕНЬ и нагрев ВЫКЛЮЧЕН -> сразу выдаем 0 #}
           {% if is_state("input_boolean.breezer_day_heating", "off") and is_state("binary_sensor.den", "on") %}
-          {% set target_temperature = 0 %}
+            0
+          {% else %}
+            {# Если блокировки нет, начинаем вычисления #}
+            {% set temperatura_v_spalne = states("sensor.temperatura_v_spalne")|float(30) %}
+            {% set breezer_temperatura_min = state_attr('climate.royal_clima_rcb_150_obogrevatel', 'min_temp')|int(0) %}
+            {% set breezer_temperatura_max = state_attr('climate.royal_clima_rcb_150_obogrevatel', 'max_temp')|int(0) %}
+            {% set temperature_at_which_heating_is_turned_on_in_breezer = states("input_number.temperature_at_which_heating_is_turned_on_in_breezer")|float(0) %}
+            {% set temperature_at_which_max_heating_is_turned_on_in_breezer = states("input_number.temperature_at_which_max_heating_is_turned_on_in_breezer")|float(0) %}
+            
+            {% set temperatura_input_delta = temperature_at_which_heating_is_turned_on_in_breezer - temperature_at_which_max_heating_is_turned_on_in_breezer %}
+            {% set temperatura_room_offcet = temperature_at_which_heating_is_turned_on_in_breezer - temperatura_v_spalne %}
+            
+            {# Защита от деления на ноль #}
+            {% if temperatura_input_delta == 0 %}
+              {% set temperatura_step = 0 %}
+            {% else %}
+              {% set temperatura_step = (breezer_temperatura_max - breezer_temperatura_min) / temperatura_input_delta %}
+            {% endif %}
+
+            {% set target_temperature = breezer_temperatura_min + temperatura_room_offcet * temperatura_step %}
+
+            {# Ограничение мин/макс значений #}
+            {% if target_temperature < breezer_temperatura_min %}
+              {% set target_temperature = breezer_temperatura_min %}
+            {% elif target_temperature > breezer_temperatura_max %}
+              {% set target_temperature = breezer_temperatura_max %}
+            {% endif %}
+
+            {# 2. ПРОВЕРКА ОФСЕТА: Если температура в комнате уже выше порога включения #}
+            {% if temperatura_room_offcet <= 0 %}
+              0
+            {% else %}
+              {{ target_temperature | round(0) }}
+            {% endif %}
           {% endif %}
-          {{target_temperature|round(0)}}
 
       - name: "Нагреватель бризера"
         icon: "mdi:heat-wave"
@@ -314,15 +325,26 @@ template:
       #######
       - name: "Надо обновлять обогреватель бризера"
         state: >
-          {% set target_temperature = states("sensor.tselevaia_temperatura_brizera")|int(0) %}
-          {% set current_temperature = state_attr('climate.royal_clima_rcb_150_obogrevatel', 'temperature')|int(0) %}
-          {% if is_state("climate.royal_clima_rcb_150_obogrevatel", "off") and target_temperature == 0 %}
-          {% set current_temperature = 0 %}
-          {% endif %}
+          {# 1. Получаем данные #}
+          {% set target = states("sensor.tselevaia_temperatura_brizera")|int(0) %}
+          {% set current_temp = state_attr('climate.royal_clima_rcb_150_obogrevatel', 'temperature')|int(0) %}
+          {% set current_mode = states('climate.royal_clima_rcb_150_obogrevatel') %}
+
+          {# 2. Если главный выключатель автоматизации ВЫКЛ - ничего не обновляем #}
           {% if is_state("input_boolean.breezer_automation_heating_on", "off") %}
-          {% set target_temperature = current_temperature %}
+            False
+          {% else %}
+            {# 3. Логика сравнения #}
+            {% if target == 0 %}
+              {# Если цель 0 -> мы хотим, чтобы нагрев был ВЫКЛЮЧЕН. #}
+              {# Значит, надо обновлять только если сейчас включен режим heat #}
+              {{ current_mode == 'heat' }}
+            {% else %}
+              {# Если цель > 0 -> мы хотим, чтобы грело до нужной t. #}
+              {# Обновляем, если: режим НЕ heat ИЛИ температуры не совпадают #}
+              {{ current_mode != 'heat' or target != current_temp }}
+            {% endif %}
           {% endif %}
-          {{target_temperature != current_temperature}}
 
 ##############
 automation: #Автоматизации
@@ -415,7 +437,6 @@ automation: #Автоматизации
           - switch.bathroomfan2_l1 # Вентиляция в ванной
           - binary_sensor.semia_doma # Присутствие людей
           - binary_sensor.den # Смена День/Ночь
-        to: null
     action:
       - choose:
           - conditions:

@@ -13,8 +13,8 @@ template:
         delay_off:
           minutes: 1
         state: >
-          {{ is_state('binary_sensor.loggia_sensor02_contact', 'on')
-              or is_state('binary_sensor.loggia_sensor03_contact', 'on')
+          {{ is_state('binary_sensor.loggia_sensor01_contact', 'on')
+              or is_state('binary_sensor.loggia_sensor02_contact', 'on')
               or is_state('binary_sensor.loggia_sensor03_contact', 'on')
               or is_state('binary_sensor.hall_sensor05_contact', 'on') }}
         device_class: "window"
