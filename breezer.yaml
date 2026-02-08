@@ -379,6 +379,13 @@ automation: #Автоматизации
     action:
       - choose:
           - conditions:
+              - condition: template
+                value_template: "{{ trigger.platform == 'state' }}"
+            sequence:
+              - delay:
+                  seconds: 2
+      - choose:
+          - conditions:
               - condition: state
                 entity_id: binary_sensor.nado_obnovliat_skorost_brizera
                 state: "on"
@@ -391,6 +398,11 @@ automation: #Автоматизации
                     target:
                       entity_id: fan.royal_clima_rcb_150
                 else:
+                  - service: fan.turn_on
+                    target:
+                      entity_id: fan.royal_clima_rcb_150
+                  - delay:
+                      seconds: 1
                   - service: fan.set_percentage
                     target:
                       entity_id: fan.royal_clima_rcb_150
