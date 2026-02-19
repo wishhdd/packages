@@ -69,13 +69,9 @@ automation:
       - condition: state
         entity_id: input_boolean.i_will_vacuum
         state: "on"
-      - condition: state
-        entity_id: binary_sensor.semia_doma
-        state: "on"
-      # ИСПРАВЛЕНО: Убрали attribute: status. Проверяем само состояние.
-      - condition: state
-        entity_id: vacuum.xiaomi_b106eu_4f70_robot_cleaner_2
-        state: "docked"
+      # ИСПРАВЛЕНО: Проверяем состояние «на базе» — docked или idle (разные интеграции по-разному отдают).
+      - condition: template
+        value_template: "{{ states('vacuum.xiaomi_b106eu_4f70_robot_cleaner_2') in ['docked', 'idle'] }}"
     action:
       - service: notify.telegram
         data:
@@ -83,6 +79,10 @@ automation:
           message: >
             Напоминаю: старт уборки через 30 минут (в 11:00).
             Пожалуйста, поднимите вещи с пола!
+      - event: vacuum_schedule_debug
+        event_data:
+          automation_id: vacuum_notify_warning_1030
+          alias: "Робот - 3. Уведомление перед стартом (10:30)"
 
   # 4. АВТО-СТАРТ (11:00)
   - id: "vacuum_start_schedule_1100"
@@ -94,17 +94,17 @@ automation:
       - condition: state
         entity_id: input_boolean.i_will_vacuum
         state: "on"
-      - condition: state
-        entity_id: binary_sensor.semia_doma
-        state: "on"
-      # ИСПРАВЛЕНО: Проверяем состояние сущности
-      - condition: state
-        entity_id: vacuum.xiaomi_b106eu_4f70_robot_cleaner_2
-        state: "docked"
+      # ИСПРАВЛЕНО: Проверяем состояние «на базе» — docked или idle.
+      - condition: template
+        value_template: "{{ states('vacuum.xiaomi_b106eu_4f70_robot_cleaner_2') in ['docked', 'idle'] }}"
     action:
       - service: vacuum.start
         target:
           entity_id: vacuum.xiaomi_b106eu_4f70_robot_cleaner_2
+      - event: vacuum_schedule_debug
+        event_data:
+          automation_id: vacuum_start_schedule_1100
+          alias: "Робот - 4. Запуск по таймеру (11:00)"
 
   # 5. СТАРТ ПРИ УХОДЕ (САМОЕ ВАЖНОЕ)
   - id: "vacuum_start_on_leave"
@@ -120,15 +120,17 @@ automation:
       - condition: state
         entity_id: input_boolean.i_will_vacuum
         state: "on"
-      # ИСПРАВЛЕНО: Убрали attribute: status.
-      # Теперь мы проверяем просто state: "docked". Это сработает.
-      - condition: state
-        entity_id: vacuum.xiaomi_b106eu_4f70_robot_cleaner_2
-        state: "docked"
+      # ИСПРАВЛЕНО: Проверяем состояние «на базе» — docked или idle.
+      - condition: template
+        value_template: "{{ states('vacuum.xiaomi_b106eu_4f70_robot_cleaner_2') in ['docked', 'idle'] }}"
     action:
       - service: vacuum.start
         target:
           entity_id: vacuum.xiaomi_b106eu_4f70_robot_cleaner_2
+      - event: vacuum_schedule_debug
+        event_data:
+          automation_id: vacuum_start_on_leave
+          alias: "Робот - 5. Запуск при уходе из дома"
 
   # 6. ФИНАЛ
   - id: "vacuum_log_success"
