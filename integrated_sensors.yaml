@@ -72,6 +72,8 @@ template:
 
       ###########
       - name: "Семья дома"
+        delay_off:
+          minutes: 1
         state: >
           {{ is_state('device_tracker.cet_lx9', 'home')
               or is_state('device_tracker.huawei_mate_20_56d6e5578c', 'home')
