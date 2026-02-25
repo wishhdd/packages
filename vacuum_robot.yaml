@@ -17,6 +17,31 @@ input_boolean:
 # 2. АВТОМАТИЗАЦИИ
 # ===============================================================
 automation:
+  # 0. ПЕРЕЗАГРУЗКА ИНТЕГРАЦИИ (за 15 мин до старта, если unavailable)
+  - id: "vacuum_reload_miot_before_start"
+    alias: "Робот - 0. Перезагрузка Miot перед стартом"
+    trigger:
+      - platform: time
+        at: "10:45:00"
+    condition:
+      - condition: template
+        value_template: "{{ states('vacuum.xiaomi_b106eu_4f70_robot_cleaner_2') == 'unavailable' }}"
+    action:
+      - service: homeassistant.reload_config_entry
+        data: {}
+        target:
+          entity_id: vacuum.xiaomi_b106eu_4f70_robot_cleaner_2
+      - service: notify.telegram
+        data:
+          title: "🔄 Перезагрузка интеграции"
+          message: >
+            Робот недоступен.
+            Интеграция Miot Auto перезапущена за 15 мин до уборки.
+      - event: vacuum_miot_reloaded
+        event_data:
+          automation_id: vacuum_reload_miot_before_start
+          robot_status: "{{ states('vacuum.xiaomi_b106eu_4f70_robot_cleaner_2') }}"
+
   # 1. ПРОВЕРКА ГРАФИКА (07:00)
   - id: "vacuum_check_schedule_0700"
     alias: "Робот - 1. Проверка графика (07:00)"
@@ -69,20 +94,37 @@ automation:
       - condition: state
         entity_id: input_boolean.i_will_vacuum
         state: "on"
-      # ИСПРАВЛЕНО: Проверяем состояние «на базе» — docked или idle (разные интеграции по-разному отдают).
-      - condition: template
-        value_template: "{{ states('vacuum.xiaomi_b106eu_4f70_robot_cleaner_2') in ['docked', 'idle'] }}"
     action:
-      - service: notify.telegram
-        data:
-          title: "🧹 Время уборки!"
-          message: >
-            Напоминаю: старт уборки через 30 минут (в 11:00).
-            Пожалуйста, поднимите вещи с пола!
-      - event: vacuum_schedule_debug
-        event_data:
-          automation_id: vacuum_notify_warning_1030
-          alias: "Робот - 3. Уведомление перед стартом (10:30)"
+      - choose:
+          - conditions:
+              - condition: template
+                value_template: "{{ states('vacuum.xiaomi_b106eu_4f70_robot_cleaner_2') == 'unavailable' }}"
+            sequence:
+              - service: notify.telegram
+                data:
+                  title: "⚠️ Робот недоступен!"
+                  message: >
+                    Робот-пылесос в статусе «Недоступен».
+                    Проверь подключение к сети и Wi-Fi.
+                    Уборка не состоится.
+              - event: vacuum_debug_unavailable
+                event_data:
+                  automation_id: vacuum_notify_warning_1030
+                  robot_status: "{{ states('vacuum.xiaomi_b106eu_4f70_robot_cleaner_2') }}"
+          - conditions:
+              - condition: template
+                value_template: "{{ states('vacuum.xiaomi_b106eu_4f70_robot_cleaner_2') in ['docked', 'idle'] }}"
+            sequence:
+              - service: notify.telegram
+                data:
+                  title: "🧹 Время уборки!"
+                  message: >
+                    Напоминаю: старт уборки через 30 минут (в 11:00).
+                    Пожалуйста, поднимите вещи с пола!
+              - event: vacuum_schedule_debug
+                event_data:
+                  automation_id: vacuum_notify_warning_1030
+                  alias: "Робот - 3. Уведомление перед стартом (10:30)"
 
   # 4. АВТО-СТАРТ (11:00)
   - id: "vacuum_start_schedule_1100"
@@ -94,17 +136,33 @@ automation:
       - condition: state
         entity_id: input_boolean.i_will_vacuum
         state: "on"
-      # ИСПРАВЛЕНО: Проверяем состояние «на базе» — docked или idle.
-      - condition: template
-        value_template: "{{ states('vacuum.xiaomi_b106eu_4f70_robot_cleaner_2') in ['docked', 'idle'] }}"
     action:
-      - service: vacuum.start
-        target:
-          entity_id: vacuum.xiaomi_b106eu_4f70_robot_cleaner_2
-      - event: vacuum_schedule_debug
-        event_data:
-          automation_id: vacuum_start_schedule_1100
-          alias: "Робот - 4. Запуск по таймеру (11:00)"
+      - choose:
+          - conditions:
+              - condition: template
+                value_template: "{{ states('vacuum.xiaomi_b106eu_4f70_robot_cleaner_2') == 'unavailable' }}"
+            sequence:
+              - service: notify.telegram
+                data:
+                  title: "⚠️ Робот недоступен!"
+                  message: >
+                    Робот-пылесос в статусе «Недоступен».
+                    Проверь подключение к сети и Wi-Fi.
+              - event: vacuum_debug_unavailable
+                event_data:
+                  automation_id: vacuum_start_schedule_1100
+                  robot_status: "{{ states('vacuum.xiaomi_b106eu_4f70_robot_cleaner_2') }}"
+          - conditions:
+              - condition: template
+                value_template: "{{ states('vacuum.xiaomi_b106eu_4f70_robot_cleaner_2') in ['docked', 'idle'] }}"
+            sequence:
+              - service: vacuum.start
+                target:
+                  entity_id: vacuum.xiaomi_b106eu_4f70_robot_cleaner_2
+              - event: vacuum_schedule_debug
+                event_data:
+                  automation_id: vacuum_start_schedule_1100
+                  alias: "Робот - 4. Запуск по таймеру (11:00)"
 
   # 5. СТАРТ ПРИ УХОДЕ (САМОЕ ВАЖНОЕ) — binary_sensor.semia_doma уже с delay_off 1 мин в integrated_sensors
   - id: "vacuum_start_on_leave"
@@ -120,17 +178,33 @@ automation:
       - condition: state
         entity_id: input_boolean.i_will_vacuum
         state: "on"
-      # ИСПРАВЛЕНО: Проверяем состояние «на базе» — docked или idle.
-      - condition: template
-        value_template: "{{ states('vacuum.xiaomi_b106eu_4f70_robot_cleaner_2') in ['docked', 'idle'] }}"
     action:
-      - service: vacuum.start
-        target:
-          entity_id: vacuum.xiaomi_b106eu_4f70_robot_cleaner_2
-      - event: vacuum_schedule_debug
-        event_data:
-          automation_id: vacuum_start_on_leave
-          alias: "Робот - 5. Запуск при уходе из дома"
+      - choose:
+          - conditions:
+              - condition: template
+                value_template: "{{ states('vacuum.xiaomi_b106eu_4f70_robot_cleaner_2') == 'unavailable' }}"
+            sequence:
+              - service: notify.telegram
+                data:
+                  title: "⚠️ Робот недоступен!"
+                  message: >
+                    Робот-пылесос в статусе «Недоступен».
+                    Проверь подключение к сети и Wi-Fi.
+              - event: vacuum_debug_unavailable
+                event_data:
+                  automation_id: vacuum_start_on_leave
+                  robot_status: "{{ states('vacuum.xiaomi_b106eu_4f70_robot_cleaner_2') }}"
+          - conditions:
+              - condition: template
+                value_template: "{{ states('vacuum.xiaomi_b106eu_4f70_robot_cleaner_2') in ['docked', 'idle'] }}"
+            sequence:
+              - service: vacuum.start
+                target:
+                  entity_id: vacuum.xiaomi_b106eu_4f70_robot_cleaner_2
+              - event: vacuum_schedule_debug
+                event_data:
+                  automation_id: vacuum_start_on_leave
+                  alias: "Робот - 5. Запуск при уходе из дома"
 
   # 6. ФИНАЛ
   - id: "vacuum_log_success"
