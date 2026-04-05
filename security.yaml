@@ -4,12 +4,6 @@ automation: #Автоматизации
 
   ####
   - alias: "toggleDoorSensor" # Оповещение об изменении состояния датчиков дверей
-    condition:
-      - condition: state
-        entity_id: binary_sensor.semia_doma
-        state: "off"
-        for:
-          minutes: 3
     trigger:
       - platform: state
         entity_id:
@@ -20,6 +14,12 @@ automation: #Автоматизации
         to:
           - "on"
           - "off"
+    condition:
+      - condition: state
+        entity_id: binary_sensor.semia_doma
+        state: "off"
+        for:
+          minutes: 3
     action:
       - service: notify.telegram
         data:
@@ -59,15 +59,15 @@ automation: #Автоматизации
 
   ###
   - alias: "turnOffLight" #выключаем свет на ночь
-    conditions:
+    trigger:
+      platform: time
+      at: "23:10:00"
+    condition:
       - condition: state
         entity_id: binary_sensor.semia_doma
         state: "off"
         for:
           minutes: 3
-    trigger:
-      platform: time
-      at: "23:10:00"
     action:
       - service: switch.turn_off
         target:

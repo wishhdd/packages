@@ -171,7 +171,7 @@ automation: #Автоматизации
         target:
           entity_id:
             - light.wled
-            - light.light.loggia_tablelamp #настольная лампа
+            - light.loggia_tablelamp #настольная лампа
 
   ####
   - alias: "lightCeilingCenter" #Один клик переключает свет центр
