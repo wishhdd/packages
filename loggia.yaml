@@ -3,47 +3,42 @@ automation: #Автоматизации
   ##############
 
   ####
-  - alias: "rightButtonLESstripOn" #
+  - id: "rightButtonLEDstrip"
+    alias: "rightButtonLEDstrip"
+    mode: single
     trigger:
       platform: state
       entity_id: switch.loggia_switch01_right
-      to: "on"
     action:
-      - service: light.turn_on
-        target:
-          entity_id: light.wled
-      - service: timer.cancel
-        target:
-          entity_id: timer.move_led
+      - choose:
+          - conditions:
+              - condition: state
+                entity_id: switch.loggia_switch01_right
+                state: "on"
+            sequence:
+              - service: light.turn_on
+                target:
+                  entity_id: light.wled
+              - service: timer.cancel
+                target:
+                  entity_id: timer.move_led
+          - conditions:
+              - condition: state
+                entity_id: switch.loggia_switch01_right
+                state: "off"
+            sequence:
+              - service: light.turn_off
+                target:
+                  entity_id: light.wled
 
   ####
-  - alias: "rightButtonLESstripOff" #
-    trigger:
-      platform: state
-      entity_id: switch.loggia_switch01_right
-      to: "off"
-    action:
-      - service: light.turn_off
-        target:
-          entity_id: light.wled
-
-  ####
-  - alias: "turnOnIlluminationOfWorkplaceOnLoggia" # включаем подсветку рабочего места на лоджии
+  - id: "workplaceIlluminationLoggia"
+    alias: "workplaceIlluminationLoggia"
+    mode: single
     trigger:
       platform: state
       entity_id: binary_sensor.podsvetka_rab_mesta
-      to: "on"
     action:
-      - service: light.turn_on
-        target:
-          entity_id: light.workplaceIllumination
-
-  - alias: "turnOffIlluminationOfWorkplaceOnLoggia" # выключаем подсветку рабочего места на лоджии
-    trigger:
-      platform: state
-      entity_id: binary_sensor.podsvetka_rab_mesta
-      to: "off"
-    action:
-      - service: light.turn_off
+      - service: "light.turn_{{ trigger.to_state.state }}"
         target:
           entity_id: light.workplaceIllumination

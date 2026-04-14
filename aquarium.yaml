@@ -100,7 +100,7 @@ template:
           {% set temperature  = states("sensor.aquarium_sensor01_temperature")|float(0) %}
           {% set pressure_size  = 0 %}
           {% if is_state("light.aquarium_fan01", "on") %}
-          {% set pressure_size = states("input_number.hysteresis_of_aquarium_cooling")|float(0)/2 %}
+          {% set pressure_size = states("input_number.hysteresis_of_aquarium_cooling")|float(0)/4 %}
           {% endif %}
           {% set speed_min  = 50 %}
           {% set speed_current  = speed_min %}
