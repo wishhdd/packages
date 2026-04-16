@@ -25,9 +25,9 @@ input_number:
     name: Минимальное значение для бризера
     icon: mdi:molecule-co2
     initial: 700
-    min: 450
-    max: 1800
-    step: 50
+    min: 400
+    max: 1500
+    step: 25
   ###
   delta_value_for_breezer:
     name: Дельта значение для бризера
@@ -42,8 +42,8 @@ input_number:
     icon: mdi:molecule-co2
     initial: 1500
     min: 450
-    max: 1800
-    step: 50
+    max: 1500
+    step: 25
   breezer_maximum_speed_at_night:
     name: Скорость бризера ночью
     icon: mdi:fan
@@ -172,7 +172,7 @@ template:
         state: >
           {% set bedroom_co2 = states("sensor.0x00124b002a61a064_co2")|float(0) %}
           {% set hall_co2 = states("sensor.hall_co2_co2")|float(0) %}
-          {{ [bedroom_co2,bedroom_co2, hall_co2]|average|round(0)|int(0) }}
+          {{ [bedroom_co2, (bedroom_co2 + hall_co2) / 2]|max|round(0)|int(0) }}
       ###########
       - name: "Целевая скорость бризера"
         unit_of_measurement: "%"
